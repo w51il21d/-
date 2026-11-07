@@ -23,6 +23,26 @@ import android.widget.TextView
 /** Settings: permissions, features, size and position, preview buttons. Built in code (no XML layouts). */
 class MainActivity : Activity() {
     private lateinit var root: LinearLayout
+    private var diag: TextView? = null
+    private val diagTick = object : Runnable {
+        override fun run() { updateDiag(); root.postDelayed(this, 1000) }
+    }
+
+    override fun onPause() { super.onPause(); root.removeCallbacks(diagTick) }
+
+    private fun updateDiag() {
+        val s = IslandService.instance
+        diag?.text = if (s == null) "아일랜드 서비스: 꺼짐 (접근성을 껐다 다시 켜 보세요)" else buildString {
+            val g = s.islandGeo; val r = s.islandRect
+            appendLine("서비스: 실행 중 · 창 붙음: ${if (s.windowAttached) "예" else "아니오"}")
+            appendLine("상태바 감지: ${if (s.statusVisible) "보임" else "숨김(전체화면으로 판단)"}")
+            appendLine("표시 상태: ${s.islandMode} · 숨김 처리: ${if (s.islandSuppressed) "예" else "아니오"}")
+            if (g != null) appendLine("카메라: x=${g.holeCx} y=${g.holeCy} 지름=${g.holeW} · 상태바 높이=${g.statusH} · 화면 폭=${g.screenW}")
+            if (r != null) appendLine("창: x=${r[0]} y=${r[1]} 폭=${r[2]} 높이=${r[3]}")
+            appendLine("알림 접근 연결: ${if (NotifListener.instance != null) "예" else "아니오"}")
+            append("오류: ${s.lastError ?: "없음"}")
+        }
+    }
     private val dark get() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
     private val cardColor get() = if (dark) 0xFF1C1C1E.toInt() else 0xFFFFFFFF.toInt()
     private val pageColor get() = if (dark) 0xFF000000.toInt() else 0xFFF2F2F7.toInt()
@@ -41,7 +61,9 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        actionBar?.hide()
         build()
+        root.removeCallbacks(diagTick); root.postDelayed(diagTick, 1000)
     }
 
     // ---------------------------------------------------------------- state
@@ -61,9 +83,8 @@ class MainActivity : Activity() {
 
     private fun build() {
         root.removeAllViews()
-        root.addView(text("아일랜드", 30f, textColor, bold = true))
         val running = IslandService.instance != null
-        root.addView(text(if (running) "실행 중입니다. 화면 위 카메라 둘레를 보세요." else "아래 권한을 켜면 시작됩니다.", 15f,
+        root.addView(text(if (running) "실행 중입니다. 표시할 일(음악·충전·알림 등)이 생기면 카메라 둘레에 나타납니다. 아래 [미리보기]로 바로 확인할 수 있습니다." else "아래 권한을 켜면 시작됩니다.", 15f,
             if (running) Ui.GREEN else subColor).apply { setPadding(0, dp(4f), 0, dp(8f)) })
 
         section("권한")
@@ -101,6 +122,7 @@ class MainActivity : Activity() {
         section("동작")
         card {
             toggle(it, Prefs.LOCK_PRIVATE, "잠금 화면에서 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
+            toggle(it, Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라지면 숨김")
             toggle(it, Prefs.HIDE_LAND, "가로 화면에서 숨기기", "영상·게임을 가로로 볼 때")
             toggle(it, Prefs.IDLE, "아무것도 없을 때 작은 알약 표시", "카메라 둘레에 검은 알약을 늘 띄웁니다")
             stepper(it, "알림 표시 시간", Prefs.NOTIF_SEC, 4, 2, 10, 1) { "${it}초" }
@@ -139,6 +161,10 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+        section("상태 확인")
+        card { val t = text("", 13f, subColor); diag = t; it.addView(t) }
+        updateDiag()
 
         root.addView(text("버전 ${packageManager.getPackageInfo(packageName, 0).versionName}", 12f, subColor)
             .apply { gravity = Gravity.CENTER; setPadding(0, dp(20f), 0, 0) })

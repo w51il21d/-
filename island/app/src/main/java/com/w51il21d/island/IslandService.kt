@@ -32,7 +32,15 @@ class IslandService : AccessibilityService() {
     private lateinit var lp: WindowManager.LayoutParams
     private var probe: View? = null
     private var events: SystemEvents? = null
-    private var statusVisible = true
+    var statusVisible = true
+        private set
+    var lastError: String? = null
+        private set
+    val islandMode get() = if (::island.isInitialized) island.mode else null
+    val islandSuppressed get() = ::island.isInitialized && island.suppressed
+    val islandRect get() = if (::island.isInitialized) island.lastPlace else null
+    val islandGeo get() = if (::island.isInitialized) island.geo else null
+    val windowAttached get() = ::island.isInitialized && island.isAttachedToWindow
     private val hubListener = { island.show(Hub.current()) }
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key -> onPref(key) }
 
@@ -55,12 +63,12 @@ class IslandService : AccessibilityService() {
             lp.x = x; lp.y = y; lp.width = w; lp.height = h
             lp.flags = if (touchable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
             else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            if (island.isAttachedToWindow) try { wm.updateViewLayout(island, lp) } catch (_: Exception) { }
+            if (island.isAttachedToWindow) try { wm.updateViewLayout(island, lp) } catch (e: Exception) { lastError = "창 갱신 실패: ${e.message}" }
         }
         island.onHold = { Hub.hold(it) }
         island.onDismissAlert = { Hub.dismissAlert() }
         applyPrefs()
-        try { wm.addView(island, lp) } catch (_: Exception) { return }
+        try { wm.addView(island, lp) } catch (e: Exception) { lastError = "창 추가 실패: ${e.message}"; return }
         addProbe()
         Hub.addListener(hubListener)
         island.show(Hub.current())
@@ -85,13 +93,13 @@ class IslandService : AccessibilityService() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START; title = "IslandProbe" }
-        try { wm.addView(v, plp); probe = v } catch (_: Exception) { }
+        try { wm.addView(v, plp); probe = v } catch (e: Exception) { lastError = "감지 창 추가 실패: ${e.message}" }
     }
 
     private fun updateSuppressed() {
         if (!::island.isInitialized) return
         val g = island.geo
-        island.setSuppressed(!statusVisible || (g.landscape && Prefs.on(this, Prefs.HIDE_LAND)))
+        island.setSuppressed((!statusVisible && Prefs.on(this, Prefs.HIDE_FULL)) || (g.landscape && Prefs.on(this, Prefs.HIDE_LAND)))
     }
 
     private fun applyPrefs() {
@@ -104,7 +112,7 @@ class IslandService : AccessibilityService() {
         when (key) {
             Prefs.OFFSET, Prefs.SCALE -> { applyPrefs(); island.refresh() }
             Prefs.IDLE -> { applyPrefs(); island.show(Hub.current()) }
-            Prefs.HIDE_LAND -> updateSuppressed()
+            Prefs.HIDE_LAND, Prefs.HIDE_FULL -> updateSuppressed()
             Prefs.MEDIA -> NotifListener.instance?.refreshMedia()
             Prefs.ONGOING -> NotifListener.instance?.rescan()
         }
