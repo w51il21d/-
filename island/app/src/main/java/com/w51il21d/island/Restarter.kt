@@ -69,6 +69,8 @@ object Restarter {
 class UpdateReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         val pending = goAsync()
-        Restarter.healAsync(c, 2500) { pending.finish() }
+        // After boot the service needs a while to connect on its own; don't fight it.
+        val delay = if (i.action == Intent.ACTION_BOOT_COMPLETED) 8000L else 2500L
+        Restarter.healAsync(c, delay) { pending.finish() }
     }
 }

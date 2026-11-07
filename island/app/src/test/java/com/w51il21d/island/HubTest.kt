@@ -60,6 +60,14 @@ class HubTest {
         assertNull(Hub.current())
     }
 
+    @Test fun clearedNotificationLeavesIsland() {
+        Hub.alert(Item("n:1", Kind.ALERT, "A", durationMs = 5000))
+        Hub.alert(Item("n:2", Kind.ALERT, "B", durationMs = 5000))
+        Hub.removeAlert("n:2")
+        Hub.removeAlert("n:1")
+        assertNull(Hub.current())
+    }
+
     @Test fun liveItemsByPriorityAndAlertOnTop() {
         Hub.putLive(Item("media", Kind.MEDIA, "song"))
         Hub.putLive(Item("call", Kind.CALL, "엄마"))

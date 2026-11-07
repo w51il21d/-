@@ -47,6 +47,7 @@ class NotifListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         Hub.removeLive(sbn.key)
+        Hub.removeAlert("n:" + sbn.key)
         seen.remove(sbn.key)
     }
 
@@ -66,6 +67,8 @@ class NotifListener : NotificationListenerService() {
             else Hub.removeLive(sbn.key)
             return
         }
+        // Was ongoing (timer, call) and now finished: drop the live item.
+        Hub.removeLive(sbn.key)
         if (initial || !Prefs.on(this, Prefs.NOTIF)) return
 
         val r = Ranking()
@@ -140,7 +143,7 @@ class NotifListener : NotificationListenerService() {
             icon = if (usePicture) large else Ui.glyph(this, glyph, accent),
             iconPicture = usePicture, iconRound = usePicture && kind == Kind.CALL,
             accent = accent,
-            rightText = right ?: if (chrono) null else when (kind) { Kind.CALL -> "통화"; Kind.TIMER -> "진행 중"; else -> null },
+            rightText = right ?: if (chrono) null else when (kind) { Kind.CALL -> "수신 중"; Kind.TIMER -> "진행 중"; else -> null },
             rightColor = accent,
             chronoBase = if (chrono) n.`when` else null,
             countDown = ex.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN),

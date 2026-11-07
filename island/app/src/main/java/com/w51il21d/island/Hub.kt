@@ -64,6 +64,12 @@ object Hub {
 
     fun dismissAlert() { holding = false; next() }
 
+    /** The notification behind an alert was read or cleared: drop it, showing or queued. */
+    fun removeAlert(key: String) {
+        queue.removeAll { it.key == key }
+        if (alert?.key == key) { holding = false; next() }
+    }
+
     /** While the user has the island expanded, the current alert must not time out. */
     fun hold(on: Boolean) {
         if (holding == on) return

@@ -37,7 +37,7 @@ class GlowView(context: Context, private val pill: View) : View(context) {
 
 
     fun play(e: Effect, c: Int) {
-        if (e == Effect.BREATHE && effect == Effect.BREATHE && c == color) return
+        if (e == Effect.BREATHE && effect == Effect.BREATHE && c == color) { invalidate(); return }
         effect = e; color = c; started = SystemClock.uptimeMillis()
         invalidate()
     }

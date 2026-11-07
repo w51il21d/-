@@ -99,13 +99,13 @@ class MainActivity : Activity() {
         if (!a11yOn() || !notifOn() || !btOn()) {
             section("권한")
             card {
-                permRow(it, "접근성: 아일랜드 표시", "화면 위에 아일랜드를 띄웁니다. 꼭 필요합니다.", a11yOn()) {
+                permRow(it, R.drawable.ic_pill, 0xFF1C1C1E.toInt(), "접근성: 아일랜드 표시", "화면 위에 아일랜드를 띄웁니다. 꼭 필요합니다.", a11yOn()) {
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
-                permRow(it, "알림 접근", "음악, 통화, 타이머, 길 안내, 알림 미리보기", notifOn()) {
+                permRow(it, R.drawable.ic_notify, 0xFFFF9500.toInt(), "알림 접근", "음악, 통화, 타이머, 길 안내, 알림 미리보기", notifOn()) {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
-                permRow(it, "근처 기기", "블루투스 이어폰 이름 표시 (선택)", btOn()) {
+                permRow(it, R.drawable.ic_headset, 0xFF0A84FF.toInt(), "근처 기기", "블루투스 이어폰 이름 표시 (선택)", btOn()) {
                     requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 1)
                 }
             }
@@ -118,39 +118,30 @@ class MainActivity : Activity() {
         card {
             val ok = Restarter.canWriteSecure(this)
             val sub = if (ok) "새 버전을 설치해도 아일랜드가 저절로 다시 켜집니다." else "새 버전을 설치하면 접근성이 끊길 수 있습니다. Shizuku로 한 번만 허용하면 저절로 다시 켭니다."
-            permRow(it, "자동으로 다시 켜기", sub, ok) { askShizuku() }
+            permRow(it, R.drawable.ic_refresh, 0xFF5E5CE6.toInt(), "자동으로 다시 켜기", sub, ok) { askShizuku() }
         }
 
         section("미리보기")
-        card {
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6f), 0, dp(6f)) }
-            fun chip(label: String, run: () -> Unit, first: Boolean = false) =
-                row.addView(pill(label, run), LinearLayout.LayoutParams(0, dp(44f), 1f).apply { if (!first) marginStart = dp(8f) })
-            chip("알림", { Demo.notification(this) }, first = true)
-            chip("충전", { Demo.charging(this) })
-            chip("타이머", { Demo.timer(this) })
-            it.addView(row)
-            if (!running) it.addView(text("아일랜드가 켜져 있어야 보입니다.", 13f, subColor).apply { setPadding(dp(4f), dp(4f), 0, dp(4f)) })
-        }
+        card { hero(it, running) }
 
         section("보여줄 내용")
         card {
-            toggle(it, Prefs.MEDIA, "음악 재생", "앨범 사진과 재생 막대, 누르면 재생 조작")
-            toggle(it, Prefs.ONGOING, "통화 · 타이머 · 길 안내", "진행 중인 시간과 다음 안내")
-            toggle(it, Prefs.NOTIF, "알림 미리보기", "새 알림을 잠깐 펼쳐서 보여줌")
-            toggle(it, Prefs.CHARGING, "충전", "충전기를 꽂을 때, 다 찼을 때")
-            toggle(it, Prefs.LOWBAT, "배터리 부족", "20%, 10%, 5%에서 한 번씩")
-            toggle(it, Prefs.RINGER, "소리 · 진동 · 무음 전환", null)
-            toggle(it, Prefs.BT, "블루투스 이어폰 연결", "이어폰, 스피커, 차량", last = true)
+            toggle(it, R.drawable.ic_music, 0xFFFF2D55.toInt(), Prefs.MEDIA, "음악 재생", "앨범 사진과 재생 막대, 누르면 재생 조작")
+            toggle(it, R.drawable.ic_phone, 0xFF34C759.toInt(), Prefs.ONGOING, "통화 · 타이머 · 길 안내", "진행 중인 시간과 다음 안내")
+            toggle(it, R.drawable.ic_notify, 0xFFFF9500.toInt(), Prefs.NOTIF, "알림 미리보기", "새 알림을 잠깐 펼쳐서 보여줌")
+            toggle(it, R.drawable.ic_bolt, 0xFF30B94D.toInt(), Prefs.CHARGING, "충전", "충전기를 꽂을 때, 다 찼을 때")
+            toggle(it, R.drawable.ic_battery_alert, 0xFFFF453A.toInt(), Prefs.LOWBAT, "배터리 부족", "20%, 10%, 5%에서 한 번씩")
+            toggle(it, R.drawable.ic_volume, 0xFFAF52DE.toInt(), Prefs.RINGER, "소리 · 진동 · 무음 전환", null)
+            toggle(it, R.drawable.ic_headset, 0xFF0A84FF.toInt(), Prefs.BT, "블루투스 이어폰 연결", "이어폰, 스피커, 차량", last = true)
         }
 
         section("효과와 동작")
         card {
-            toggle(it, Prefs.GLOW, "빛 효과", "음악 색 번짐, 충전 테두리 빛, 알림 빛")
-            toggle(it, Prefs.LOCK_PRIVATE, "잠금 화면에서 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
-            toggle(it, Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라질 때")
-            toggle(it, Prefs.HIDE_LAND, "가로 화면에서 숨기기", null)
-            toggle(it, Prefs.IDLE, "평소에도 작은 알약 표시", "표시할 내용이 없을 때도 카메라 둘레에", last = true)
+            toggle(it, R.drawable.ic_sparkle, 0xFFFFB800.toInt(), Prefs.GLOW, "빛 효과", "음악 색 번짐, 충전 테두리 빛, 알림 빛")
+            toggle(it, R.drawable.ic_lock, 0xFF8E8E93.toInt(), Prefs.LOCK_PRIVATE, "잠금 화면에서 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
+            toggle(it, R.drawable.ic_fullscreen, 0xFF5AC8FA.toInt(), Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라질 때")
+            toggle(it, R.drawable.ic_rotate, 0xFF64D2FF.toInt(), Prefs.HIDE_LAND, "가로 화면에서 숨기기", null)
+            toggle(it, R.drawable.ic_pill, 0xFF3A3A3C.toInt(), Prefs.IDLE, "평소에도 작은 알약 표시", "표시할 내용이 없을 때도 카메라 둘레에", last = true)
         }
 
         section("크기와 위치")
@@ -174,7 +165,7 @@ class MainActivity : Activity() {
                         setOnCheckedChangeListener { _, on -> Prefs.setExcluded(this@MainActivity, pkg, !on) }
                     }
                     it.addView(cb, LinearLayout.LayoutParams(-1, dp(52f)))
-                    if (idx < apps.size - 1) line(it)
+                    if (idx < apps.size - 1) line(it, inset = false)
                 }
             }
             note("체크를 풀면 그 앱의 알림은 아일랜드에 띄우지 않습니다.")
@@ -199,6 +190,44 @@ class MainActivity : Activity() {
         box.addView(text(if (running) "켜져 있음 · 표시할 일이 생기면 카메라 둘레에 나타납니다" else "꺼져 있음 · 아래 권한을 켜 주세요",
             14f, if (running) 0xFF2EB85C.toInt() else subColor).apply { gravity = Gravity.CENTER; setPadding(0, dp(8f), 0, 0) })
         root.addView(box, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    /** A small phone-top scene with the island on it; the buttons play real previews on the phone. */
+    private fun hero(parent: LinearLayout, running: Boolean) {
+        val scene = android.widget.FrameLayout(this).apply {
+            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF7F9CF5.toInt(), 0xFFC6A4E0.toInt(), 0xFFF6AD8F.toInt())).apply { cornerRadius = dp(20f).toFloat() }
+            clipToOutline = true
+        }
+        val bar = android.widget.FrameLayout(this)
+        bar.addView(text("9:41", 13f, 0xFFFFFFFF.toInt(), weight = 600), android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(18f) })
+        bar.addView(text("87%", 13f, 0xFFFFFFFF.toInt(), weight = 600), android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(18f) })
+        val mini = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = Ui.round(0xFF000000.toInt(), dp(14f).toFloat())
+            setPadding(dp(5f), 0, dp(10f), 0)
+        }
+        mini.addView(View(this).apply {
+            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFFFF2D55.toInt(), 0xFF5E5CE6.toInt())).apply { cornerRadius = dp(5f).toFloat() }
+        }, LinearLayout.LayoutParams(dp(18f), dp(18f)))
+        mini.addView(View(this), LinearLayout.LayoutParams(dp(22f), 1))
+        mini.addView(View(this).apply { background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(0xFF26262B.toInt()) } },
+            LinearLayout.LayoutParams(dp(11f), dp(11f)))
+        mini.addView(View(this), LinearLayout.LayoutParams(dp(22f), 1))
+        mini.addView(EqView(this, 0xFFFF5C8A.toInt(), true), LinearLayout.LayoutParams(dp(16f), dp(12f)))
+        bar.addView(mini, android.widget.FrameLayout.LayoutParams(-2, dp(28f), Gravity.CENTER))
+        scene.addView(bar, android.widget.FrameLayout.LayoutParams(-1, dp(40f), Gravity.TOP).apply { topMargin = dp(8f) })
+        scene.addView(text(if (running) "버튼을 누르면 휴대폰 위쪽에서 바로 보입니다" else "권한을 켜면 미리보기를 볼 수 있습니다", 12.5f, 0xE6FFFFFF.toInt()).apply { gravity = Gravity.CENTER },
+            android.widget.FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { bottomMargin = dp(12f) })
+        parent.addView(scene, LinearLayout.LayoutParams(-1, dp(104f)).apply { topMargin = dp(12f) })
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12f), 0, dp(10f)) }
+        fun chip(label: String, first: Boolean, run: () -> Unit) =
+            row.addView(pill(label, run), LinearLayout.LayoutParams(0, dp(44f), 1f).apply { if (!first) marginStart = dp(8f) })
+        chip("알림", true) { Demo.notification(this) }
+        chip("충전", false) { Demo.charging(this) }
+        chip("타이머", false) { Demo.timer(this) }
+        parent.addView(row)
     }
 
     private fun updateDiag() {
@@ -275,8 +304,16 @@ class MainActivity : Activity() {
         root.addView(c, LinearLayout.LayoutParams(-1, -2))
     }
 
-    private fun line(parent: LinearLayout) {
-        parent.addView(View(this).apply { setBackgroundColor(divider) }, LinearLayout.LayoutParams(-1, 1))
+    private fun line(parent: LinearLayout, inset: Boolean = true) {
+        parent.addView(View(this).apply { setBackgroundColor(divider) }, LinearLayout.LayoutParams(-1, 1).apply { if (inset) marginStart = dp(54f) })
+    }
+
+    /** One UI style coloured round icon in front of a row. */
+    private fun badge(res: Int, color: Int): View = android.widget.ImageView(this).apply {
+        setImageDrawable(Ui.glyph(context, res, 0xFFFFFFFF.toInt()))
+        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(color) }
+        val p = dp(8f); setPadding(p, p, p, p)
+        layoutParams = LinearLayout.LayoutParams(dp(38f), dp(38f)).apply { marginEnd = dp(16f) }
     }
 
     private fun twoLine(title: String, sub: String?): LinearLayout = LinearLayout(this).apply {
@@ -290,9 +327,10 @@ class MainActivity : Activity() {
         minimumHeight = dp(64f); setPadding(0, dp(12f), 0, dp(12f))
     }
 
-    private fun permRow(parent: LinearLayout, title: String, sub: String, ok: Boolean, open: () -> Unit) {
+    private fun permRow(parent: LinearLayout, icon: Int, color: Int, title: String, sub: String, ok: Boolean, open: () -> Unit) {
         if (parent.childCount > 0) line(parent)
         val r = row()
+        r.addView(badge(icon, color))
         r.addView(twoLine(title, sub), LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(12f) })
         if (ok) r.addView(text("켜짐", 14f, 0xFF2EB85C.toInt(), weight = 600))
         else r.addView(pill("켜기", open), LinearLayout.LayoutParams(-2, dp(38f)))
@@ -300,8 +338,9 @@ class MainActivity : Activity() {
     }
 
     @Suppress("DEPRECATION")
-    private fun toggle(parent: LinearLayout, key: String, title: String, sub: String?, last: Boolean = false) {
+    private fun toggle(parent: LinearLayout, icon: Int, color: Int, key: String, title: String, sub: String?, last: Boolean = false) {
         val r = row()
+        r.addView(badge(icon, color))
         r.addView(twoLine(title, sub), LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(12f) })
         val sw = Switch(this).apply {
             isChecked = Prefs.on(this@MainActivity, key)
@@ -341,6 +380,6 @@ class MainActivity : Activity() {
         (top.getChildAt(2) as TextView).setOnClickListener { sb.progress = (def - min) / step; Prefs.setInt(this, key, def) }
         box.addView(sb, LinearLayout.LayoutParams(-1, dp(40f)).apply { topMargin = dp(4f) })
         parent.addView(box)
-        if (!last) line(parent)
+        if (!last) line(parent, inset = false)
     }
 }

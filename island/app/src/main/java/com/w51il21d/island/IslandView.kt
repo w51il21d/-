@@ -155,6 +155,8 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
 
     fun show(next: Item?) {
         val prev = item
+        // Don't rebuild under the user's finger while they drag the music position.
+        if (seek?.dragging == true && next != null && prev?.key == next.key) { item = next; return }
         item = next
         val target = when {
             next == null -> if (idlePill) Mode.IDLE else Mode.HIDDEN
@@ -189,8 +191,10 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         if (s == suppressed) return
         suppressed = s
         if (s && mode == Mode.EXPANDED) collapse()
-        alpha = if (s) 0f else 1f
+        // Invisible (not just transparent) so music bars and glow stop redrawing while hidden.
+        visibility = if (s) INVISIBLE else VISIBLE
         place(curW, curH)
+        updateBreathing()
     }
 
     fun setGeometry(g: Geo) {
@@ -446,7 +450,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     /** Music playing → the album colour breathes softly around the pill. */
     private fun updateBreathing() {
         val i = item
-        val breathe = animate && glowOn && i?.media?.playing == true && mode != Mode.HIDDEN
+        val breathe = animate && glowOn && !suppressed && i?.media?.playing == true && mode != Mode.HIDDEN
         if (breathe) {
             if (glow.playing == GlowView.Effect.NONE || glow.playing == GlowView.Effect.BREATHE) glow.play(GlowView.Effect.BREATHE, i!!.accent)
         } else if (glow.playing == GlowView.Effect.BREATHE) glow.stop()

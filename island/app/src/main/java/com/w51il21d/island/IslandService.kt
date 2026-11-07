@@ -45,11 +45,12 @@ class IslandService : AccessibilityService() {
     val islandSuppressed get() = ::island.isInitialized && island.suppressed
     val islandRect get() = if (::island.isInitialized) island.lastPlace else null
     val islandGeo get() = if (::island.isInitialized) island.geo else null
-    val windowAttached get() = ::island.isInitialized && island.isAttachedToWindow
+    val windowAttached get() = ::island.isInitialized && island.parent != null
     private val hubListener = { island.show(Hub.current()) }
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key -> onPref(key) }
 
     override fun onServiceConnected() {
+        if (::island.isInitialized) { ensureWindows(); return }
         instance = this
         wm = getSystemService(WindowManager::class.java)
         lp = WindowManager.LayoutParams(
@@ -118,19 +119,20 @@ class IslandService : AccessibilityService() {
     fun ensureWindows() {
         if (instance !== this || !::island.isInitialized) return
         var reattached = false
-        if (!island.isAttachedToWindow) {
+        // parent is set synchronously by addView; isAttachedToWindow only after the next frame.
+        if (island.parent == null) {
             try { wm.addView(island, lp); reattached = true; lastError = null } catch (e: Exception) { lastError = "창 다시 붙이기 실패: ${e.message}" }
         }
         val t = touchView
-        if (t == null || !t.isAttachedToWindow) {
+        if (t == null || t.parent == null) {
             t?.let { try { wm.removeView(it) } catch (_: Exception) { } }
             touchView = null; addTouchWindow()
         }
         val p = probe
-        if (p == null || !p.isAttachedToWindow) {
+        if (p == null || p.parent == null) {
             p?.let { try { wm.removeView(it) } catch (_: Exception) { } }
             probe = null; addProbe()
-        }
+        } else probeCheck()
         val g = geometry()
         if (g != island.geo) island.setGeometry(g) else if (reattached) island.refresh()
         updateSuppressed()
@@ -167,6 +169,8 @@ class IslandService : AccessibilityService() {
      * Full-height, 1-pixel-wide invisible window that does NOT draw under the status bar.
      * While the status bar shows, Android pushes it down (top > 0); in fullscreen apps it starts at 0.
      */
+    private var probeCheck: () -> Unit = {}
+
     private fun addProbe() {
         val v = View(this)
         val check = {
@@ -175,6 +179,7 @@ class IslandService : AccessibilityService() {
             val vis = !probeWorks || loc[1] > 0
             if (vis != statusVisible) { statusVisible = vis; updateSuppressed() }
         }
+        probeCheck = check
         v.viewTreeObserver.addOnGlobalLayoutListener { check() }
         v.setOnApplyWindowInsetsListener { view, ins -> view.post { check() }; ins }
         val plp = WindowManager.LayoutParams(
