@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.view.Display
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -31,6 +32,8 @@ class IslandService : AccessibilityService() {
     private lateinit var wm: WindowManager
     private lateinit var island: IslandView
     private lateinit var lp: WindowManager.LayoutParams
+    private lateinit var tlp: WindowManager.LayoutParams
+    private var touchView: View? = null
     private var probe: View? = null
     private var events: SystemEvents? = null
     var statusVisible = true
@@ -51,8 +54,7 @@ class IslandService : AccessibilityService() {
         lp = WindowManager.LayoutParams(
             1, 1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -60,22 +62,59 @@ class IslandService : AccessibilityService() {
             fitInsetsTypes = 0
             title = "Island"
         }
-        island = IslandView(this, geometry()) { x, y, w, h, touchable ->
-            lp.x = x; lp.y = y; lp.width = w; lp.height = h
-            lp.flags = if (touchable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            if (island.isAttachedToWindow) try { wm.updateViewLayout(island, lp) } catch (e: Exception) { lastError = "창 갱신 실패: ${e.message}" }
+        lp.width = WindowManager.LayoutParams.MATCH_PARENT
+        tlp = WindowManager.LayoutParams(
+            1, 1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            fitInsetsTypes = 0
+            title = "IslandTouch"
         }
+        island = IslandView(this, geometry(), object : IslandView.Host {
+            override fun frame(h: Int) {
+                lp.height = h
+                if (island.isAttachedToWindow) try { wm.updateViewLayout(island, lp) } catch (e: Exception) { lastError = "창 갱신 실패: ${e.message}" }
+            }
+            override fun touch(x: Int, y: Int, w: Int, h: Int, touchable: Boolean) {
+                tlp.x = x; tlp.y = y; tlp.width = w; tlp.height = h
+                tlp.flags = if (touchable) tlp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                else tlp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                val t = touchView
+                if (t != null && t.isAttachedToWindow) try { wm.updateViewLayout(t, tlp) } catch (e: Exception) { lastError = "터치 창 갱신 실패: ${e.message}" }
+            }
+        })
         island.onHold = { Hub.hold(it) }
         island.onDismissAlert = { Hub.dismissAlert() }
         applyPrefs()
         try { wm.addView(island, lp) } catch (e: Exception) { lastError = "창 추가 실패: ${e.message}"; return }
+        addTouchWindow()
         addProbe()
         Hub.addListener(hubListener)
         island.show(Hub.current())
         updateSuppressed()
         events = SystemEvents(this).also { it.register() }
         Prefs.sp(this).registerOnSharedPreferenceChangeListener(prefListener)
+    }
+
+    /** Invisible window over the pill; hands its touches to the drawing window's views. */
+    private fun addTouchWindow() {
+        val v = object : View(this) {
+            @android.annotation.SuppressLint("ClickableViewAccessibility")
+            override fun onTouchEvent(e: MotionEvent): Boolean {
+                if (e.actionMasked == MotionEvent.ACTION_OUTSIDE) { island.collapse(); return true }
+                val ev = MotionEvent.obtain(e)
+                ev.offsetLocation(tlp.x.toFloat(), tlp.y.toFloat())
+                island.dispatchTouchEvent(ev)
+                ev.recycle()
+                return true
+            }
+        }
+        try { wm.addView(v, tlp); touchView = v } catch (e: Exception) { lastError = "터치 창 추가 실패: ${e.message}" }
     }
 
     /** True once the probe has ever been pushed below a visible status bar; until then we trust nothing. */
@@ -183,6 +222,8 @@ class IslandService : AccessibilityService() {
         if (::island.isInitialized) {
             Hub.removeListener(hubListener)
             try { wm.removeView(island) } catch (_: Exception) { }
+            touchView?.let { try { wm.removeView(it) } catch (_: Exception) { } }
+            touchView = null
         }
         probe?.let { try { wm.removeView(it) } catch (_: Exception) { } }
         probe = null

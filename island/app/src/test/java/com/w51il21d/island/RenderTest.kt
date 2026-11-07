@@ -49,6 +49,11 @@ class RenderTest {
         holeW = (19.4f * d).toInt(), holeH = (19.4f * d).toInt(), statusH = (36.3f * d).toInt(), density = d,
     )
 
+    private object NoHost : IslandView.Host {
+        override fun frame(h: Int) {}
+        override fun touch(x: Int, y: Int, w: Int, h: Int, touchable: Boolean) {}
+    }
+
     @Before fun setUp() { Hub.reset(); IslandView.animate = false }
     @After fun tearDown() { Hub.reset(); IslandView.animate = true }
 
@@ -98,23 +103,24 @@ class RenderTest {
     private class Shot(val name: String, val bmp: Bitmap, val place: IntArray, val mode: IslandView.Mode)
 
     private fun render(name: String, item: Item?, expand: Boolean = false, idle: Boolean = false): Shot {
-        val v = IslandView(ctx, geo) { _, _, _, _, _ -> }
+        val v = IslandView(ctx, geo, NoHost)
         v.idlePill = idle
         v.show(item)
         if (expand) v.expand()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
         val (x, y, w, h) = v.lastPlace.toList()
-        v.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
-        v.layout(0, 0, w, h)
         val g = geo
-        val frameH = maxOf(y + h + (14 * d).toInt(), (64 * d).toInt())
+        val winH = v.lastFrameH
+        v.measure(View.MeasureSpec.makeMeasureSpec(g.screenW, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(winH, View.MeasureSpec.EXACTLY))
+        v.layout(0, 0, g.screenW, winH)
+        val frameH = maxOf(winH + (14 * d).toInt(), (64 * d).toInt())
         val bmp = Bitmap.createBitmap(g.screenW, frameH, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         c.drawPaint(Paint().apply { shader = LinearGradient(0f, 0f, g.screenW.toFloat(), frameH.toFloat(), 0xFF7F9CF5.toInt(), 0xFFF6AD8F.toInt(), Shader.TileMode.CLAMP) })
         val sbText = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 14 * d; typeface = Typeface.DEFAULT_BOLD }
         c.drawText("9:41", 22 * d, g.holeCy + 5 * d, sbText)
         c.drawText("5G  87%", g.screenW - 90 * d, g.holeCy + 5 * d, sbText)
-        c.save(); c.translate(x.toFloat(), y.toFloat()); v.draw(c); c.restore()
+        v.draw(c)
         // The real camera lens, drawn on top: it must sit inside the black pill.
         c.drawCircle(g.holeCx.toFloat(), g.holeCy.toFloat(), g.holeW / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF202024.toInt() })
         c.drawCircle(g.holeCx.toFloat(), g.holeCy.toFloat(), g.holeW / 5f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF3A3A50.toInt() })
@@ -179,7 +185,7 @@ class RenderTest {
 
     @Test fun animatedTransitionsDoNotCrash() {
         IslandView.animate = true
-        val v = IslandView(ctx, geo) { _, _, _, _, _ -> }
+        val v = IslandView(ctx, geo, NoHost)
         val looper = shadowOf(Looper.getMainLooper())
         v.show(media()); looper.idleFor(Duration.ofMillis(600))
         v.expand(); looper.idleFor(Duration.ofMillis(100))
@@ -192,7 +198,7 @@ class RenderTest {
     }
 
     @Test fun expandedAutoCollapses() {
-        val v = IslandView(ctx, geo) { _, _, _, _, _ -> }
+        val v = IslandView(ctx, geo, NoHost)
         v.show(call()); v.expand()
         assertEquals(IslandView.Mode.EXPANDED, v.mode)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(7100))

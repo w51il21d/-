@@ -52,12 +52,19 @@ data class Geo(
 )
 
 /**
- * The black pill. It lives in its own small overlay window; [Host.place] moves and sizes that
+ * The black pill. It is drawn in a screen-wide window that never moves sideways (moving a window
+ * and redrawing it are not in sync, which made the pill jump). [Host.frame] only grows or shrinks
+ * that window downward. Touches come through a separate invisible window, [Host.touch], sized to the pill;
  * window so that only the pill itself catches touches and the rest of the status bar stays usable.
  */
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayout(context) {
-    fun interface Host { fun place(x: Int, y: Int, w: Int, h: Int, touchable: Boolean) }
+    interface Host {
+        /** Height of the drawing window, which is fixed at the top-left and as wide as the screen. */
+        fun frame(h: Int)
+        /** Rectangle of the invisible touch window. */
+        fun touch(x: Int, y: Int, w: Int, h: Int, touchable: Boolean)
+    }
     enum class Mode { HIDDEN, IDLE, COMPACT, BANNER, EXPANDED }
 
     companion object {
@@ -181,6 +188,8 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
 
     /** Last window rectangle given to the host: x, y, w, h. For tests. */
     var lastPlace = intArrayOf(0, 0, 0, 0); private set
+    /** Last drawing-window height. For tests. */
+    var lastFrameH = 0; private set
 
     // ---------------------------------------------------------------- geometry
 
@@ -207,18 +216,24 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
 
     private fun radiusFor(h: Int) = min(h / 2f, compactH / 2f + raw(14f))
 
-    private fun place(w: Int, h: Int) {
+    private fun place(w: Int, h: Int) = placeAnim(h, w, h)
+
+    /** Drawing window tall enough for [frameH] of pill; touch window exactly on the target pill. */
+    private fun placeAnim(frameH: Int, w: Int, h: Int) {
         val touch = !suppressed && mode != Mode.HIDDEN && mode != Mode.IDLE
         val x = geo.holeCx - w / 2
         lastPlace = intArrayOf(x, topY, w, h)
-        host.place(x, topY, max(1, w), max(1, h), touch)
+        val fh = topY + max(1, frameH)
+        if (fh != lastFrameH) { lastFrameH = fh; host.frame(fh) }
+        host.touch(x, topY, max(1, w), max(1, h), touch)
     }
 
     private fun applySize(w: Int, h: Int) {
         curW = w; curH = h
-        val lp = pill.layoutParams
-        lp.width = max(1, w); lp.height = max(1, h)
+        val lp = pill.layoutParams as LayoutParams
+        lp.width = max(1, w); lp.height = max(1, h); lp.topMargin = topY
         pill.layoutParams = lp
+        pill.translationX = geo.holeCx - geo.screenW / 2f
         bg.cornerRadius = radiusFor(h)
     }
 
@@ -275,9 +290,8 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         }
         val grow = tw * th >= fromW * fromH
         // The spring overshoots by up to ~16% of the change; give the window room for it.
-        val slackW = if (tw > fromW) ((tw - fromW) * 0.18f).roundToInt() + raw(2f) else 0
         val slackH = if (th > fromH) ((th - fromH) * 0.18f).roundToInt() + raw(2f) else 0
-        place(max(fromW, tw) + slackW, max(fromH, th) + slackH)
+        placeAnim(max(fromH, th) + slackH, tw, th)
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = if (grow) 560 else 440
             interpolator = if (grow) Spring(5.2f, 9.5f) else Spring(7.5f, 8f)
