@@ -72,7 +72,7 @@ class RenderTest {
         return Item(
             key = "media", kind = Kind.MEDIA, title = "밤양갱", text = "비비 (BIBI)", label = "YouTube Music",
             icon = a, iconPicture = true, accent = Ui.accentOf(a.bitmap),
-            media = MediaInfo(playing, 147_000, { 52_000 }, {}, {}, {}, {}),
+            media = MediaInfo(playing, 147_000, { 52_000 }, {}, {}, {}, {}, album = "Bam Yang Gang", output = "Galaxy Buds3 Pro", backdrop = Ui.backdrop(a.bitmap)),
         )
     }
 
@@ -203,6 +203,12 @@ class RenderTest {
         assertEquals(IslandView.Mode.EXPANDED, v.mode)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(7100))
         assertEquals(IslandView.Mode.COMPACT, v.mode)
+    }
+
+    @Test fun sameArtSignature() {
+        val b1 = art().bitmap
+        val b2 = b1.copy(Bitmap.Config.ARGB_8888, false)
+        assertEquals(Ui.signature(b1), Ui.signature(b2))
     }
 
     @Test fun allDrawablesLoad() {

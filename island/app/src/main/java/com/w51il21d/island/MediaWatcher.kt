@@ -23,6 +23,9 @@ class MediaWatcher(private val ctx: Context) {
     private val tracked = HashMap<MediaSession.Token, Pair<MediaController, MediaController.Callback>>()
     private var current: MediaController? = null
     private var lastArt: Bitmap? = null
+    private var lastSig = -1L
+    private var lastIcon: android.graphics.drawable.Drawable? = null
+    private var lastBackdrop: Bitmap? = null
     private var lastAccent = Ui.WHITE
     private val sessions = MediaSessionManager.OnActiveSessionsChangedListener { onSessions(it ?: emptyList()) }
     private val dropPaused = Runnable { current = null; Hub.removeLive(KEY) }
@@ -77,6 +80,18 @@ class MediaWatcher(private val ctx: Context) {
         publish(c, on)
     }
 
+    /** Name of connected earbuds/headphones, or null when sound comes from the phone. */
+    private fun outputName(): String? = try {
+        val am = ctx.getSystemService(android.media.AudioManager::class.java)
+        val types = setOf(
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_BLE_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER, android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET, android.media.AudioDeviceInfo.TYPE_USB_HEADSET,
+        )
+        am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.type in types }
+            ?.let { d -> d.productName?.toString()?.takeIf { it.isNotBlank() && it != android.os.Build.MODEL } ?: "이어폰" }
+    } catch (_: Exception) { null }
+
     private fun publish(c: MediaController, playing: Boolean) {
         val md = c.metadata ?: return
         val title = md.getString(MediaMetadata.METADATA_KEY_TITLE) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE) ?: return
@@ -84,7 +99,18 @@ class MediaWatcher(private val ctx: Context) {
             ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
         val art = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
             ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-        if (art !== lastArt) { lastArt = art; lastAccent = Ui.accentOf(art) }
+        // Players re-send the same picture as a new object on every update; reuse ours when the content
+        // is the same, otherwise the island thinks the art changed and replays its change animation (flicker).
+        if (art !== lastArt) {
+            lastArt = art
+            val sig = Ui.signature(art)
+            if (sig != lastSig) {
+                lastSig = sig
+                lastAccent = Ui.accentOf(art)
+                lastIcon = art?.let { BitmapDrawable(ctx.resources, it) }
+                lastBackdrop = Ui.backdrop(art)
+            }
+        }
         val dur = md.getLong(MediaMetadata.METADATA_KEY_DURATION)
         val tc = c.transportControls
         val pkg = c.packageName
@@ -104,8 +130,11 @@ class MediaWatcher(private val ctx: Context) {
             next = { tc.skipToNext() },
             prev = { tc.skipToPrevious() },
             seek = { tc.seekTo(it) },
+            album = md.getString(MediaMetadata.METADATA_KEY_ALBUM)?.takeIf { it.isNotBlank() && it != title },
+            output = outputName(),
+            backdrop = lastBackdrop,
         )
-        val icon = art?.let { BitmapDrawable(ctx.resources, it) } ?: Ui.appIcon(ctx, pkg)
+        val icon = lastIcon ?: Ui.appIcon(ctx, pkg)
         Hub.putLive(Item(
             key = KEY, kind = Kind.MEDIA, title = title, text = artist, pkg = pkg,
             label = Ui.appLabel(ctx, pkg), icon = icon, iconPicture = icon != null,

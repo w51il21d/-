@@ -51,6 +51,28 @@ object Ui {
         } catch (_: Exception) { false }
     }
 
+    /** Cheap content fingerprint, so a re-sent copy of the same album art counts as unchanged. */
+    fun signature(b: Bitmap?): Long {
+        b ?: return 0
+        return try {
+            val src = if (b.config == Bitmap.Config.HARDWARE) b.copy(Bitmap.Config.ARGB_8888, false) else b
+            val s = Bitmap.createScaledBitmap(src, 8, 8, true)
+            var h = 1125899906842597L
+            for (x in 0 until 8) for (y in 0 until 8) h = 31 * h + (s.getPixel(x, y) and 0xF0F0F0)
+            h
+        } catch (_: Exception) { b.hashCode().toLong() }
+    }
+
+    /** Very soft blur by shrinking to a few pixels; drawn stretched it becomes a colour wash. */
+    fun backdrop(b: Bitmap?): Bitmap? {
+        b ?: return null
+        return try {
+            val src = if (b.config == Bitmap.Config.HARDWARE) b.copy(Bitmap.Config.ARGB_8888, false) else b
+            val tiny = Bitmap.createScaledBitmap(src, 6, 6, true)
+            Bitmap.createScaledBitmap(tiny, 48, 48, true)
+        } catch (_: Exception) { null }
+    }
+
     /** Main colour of an app icon or picture, for the glow. */
     fun accentOf(d: Drawable?): Int {
         d ?: return WHITE

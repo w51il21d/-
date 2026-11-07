@@ -20,6 +20,11 @@ class MediaInfo(
     val next: () -> Unit,
     val prev: () -> Unit,
     val seek: (Long) -> Unit,
+    val album: String? = null,
+    /** Where the sound goes: earbuds name, or null for the phone speaker. */
+    val output: String? = null,
+    /** Small blurred album picture for the expanded player's background. */
+    val backdrop: android.graphics.Bitmap? = null,
 )
 
 data class Item(

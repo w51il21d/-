@@ -625,22 +625,44 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     }
 
     private fun buildExpanded(i: Item): View {
+        i.media?.let { return buildPlayer(i, it) }
         val col = column(bottom = raw(18f))
         col.addView(topRow(i, if (i.kind == Kind.ALERT && i.shape == Shape.BANNER) "지금" else null),
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, compactH))
-        val media = i.media
-        if (media != null) {
-            // Album colour washes in from the top, One UI player style.
-            col.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(70, Color.red(i.accent), Color.green(i.accent), Color.blue(i.accent)), Color.TRANSPARENT)).apply {
-                cornerRadius = compactH / 2f + raw(16f)
-            }
-            col.addView(mainRow(i, raw(64f), 17f, 1, 26f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(6f) })
-            col.addView(mediaControls(media))
-        } else {
-            col.addView(mainRow(i, raw(46f), 16.5f, 4, 28f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(6f) })
-            if (i.actions.isNotEmpty()) col.addView(actionsRow(i), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(16f) })
-        }
+        col.addView(mainRow(i, raw(46f), 16.5f, 4, 28f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(6f) })
+        if (i.actions.isNotEmpty()) col.addView(actionsRow(i), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(16f) })
+        return col
+    }
+
+    /**
+     * Expanded music player: blurred album picture behind, art + title/artist/album, output device,
+     * slim progress, round play button. Everything else stays black and quiet.
+     */
+    private fun buildPlayer(i: Item, m: MediaInfo): View {
+        val col = column(bottom = raw(20f))
+        val r = compactH / 2f + raw(16f)
+        val scrim = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.argb(110, 0, 0, 0), Color.argb(200, 0, 0, 0), Color.argb(245, 0, 0, 0))).apply { cornerRadius = r }
+        col.background = m.backdrop?.let { b ->
+            android.graphics.drawable.LayerDrawable(arrayOf(
+                android.graphics.drawable.BitmapDrawable(resources, b).apply { isFilterBitmap = true; alpha = 210 },
+                scrim))
+        } ?: GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.argb(80, Color.red(i.accent), Color.green(i.accent), Color.blue(i.accent)), Color.TRANSPARENT)).apply { cornerRadius = r }
+
+        col.addView(topRow(i, m.output?.let { "♫ $it" }), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, compactH))
+
+        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val isz = raw(72f)
+        row.addView(iconView(i, isz, corner = 0.2f).apply { elevation = raw(6f).toFloat() }, LinearLayout.LayoutParams(isz, isz).apply { marginEnd = raw(16f) })
+        val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        texts.addView(tv(i.title, sp(18f), Ui.WHITE, weight = 600, tag = "title"))
+        if (!i.text.isNullOrBlank()) texts.addView(tv(i.text, sp(14.5f), 0xD9FFFFFF.toInt(), tag = "text"), LinearLayout.LayoutParams(-2, -2).apply { topMargin = raw(4f) })
+        if (m.album != null) texts.addView(tv(m.album, sp(12.5f), 0x8CFFFFFF.toInt()), LinearLayout.LayoutParams(-2, -2).apply { topMargin = raw(3f) })
+        row.addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(EqView(context, i.accent, m.playing), LinearLayout.LayoutParams(raw(22f), raw(18f)).apply { marginStart = raw(12f) })
+        col.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(4f) })
+        col.addView(mediaControls(m))
         return col
     }
 
