@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <string name="app_name">아일랜드</string>
+ <string name="a11y_label">아일랜드 표시</string>
+ <string name="a11y_desc">화면 위 카메라 구멍 둘레에 음악, 충전, 알림, 통화, 타이머, 길 안내를 보여주는 창을 띄웁니다. 화면 내용은 읽지 않으며, 지금 열린 앱 이름만 확인해 그 앱의 알림을 겹쳐 띄우지 않는 데 씁니다.</string>
+</resources>
