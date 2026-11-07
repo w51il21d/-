@@ -645,7 +645,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
             intArrayOf(Color.argb(110, 0, 0, 0), Color.argb(200, 0, 0, 0), Color.argb(245, 0, 0, 0))).apply { cornerRadius = r }
         col.background = m.backdrop?.let { b ->
             android.graphics.drawable.LayerDrawable(arrayOf(
-                android.graphics.drawable.BitmapDrawable(resources, b).apply { isFilterBitmap = true; alpha = 210 },
+                Backdrop(b, r, 210),
                 scrim))
         } ?: GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(Color.argb(80, Color.red(i.accent), Color.green(i.accent), Color.blue(i.accent)), Color.TRANSPARENT)).apply { cornerRadius = r }
