@@ -178,9 +178,20 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
 
     private fun raw(dp: Float) = (dp * geo.density).roundToInt()
     private fun sp(v: Float) = v * geo.density
-    private val compactH get() = max((geo.statusH * 0.84f * scale).roundToInt(), geo.holeH + raw(8f))
+    /** Pill height: fits inside the status bar (at 100% size) while still covering the camera. */
+    private val compactH: Int get() {
+        val want = (geo.statusH * 0.76f * scale).roundToInt()
+        val floor = min(geo.holeH + raw(4f), geo.statusH)
+        val h = max(want, floor)
+        return if (scale <= 1f) min(h, geo.statusH - raw(2f)) else h
+    }
     private val wideW get() = geo.screenW - raw(20f)
-    private val topY get() = max(0, geo.holeCy - compactH / 2 + raw(offsetDp.toFloat()))
+    /** Centred on the camera, kept inside the status bar band, then the user's fine offset. */
+    private val topY: Int get() {
+        val cy = if (geo.holeH > 0 && geo.holeCy < geo.statusH) geo.holeCy else geo.statusH / 2
+        val y = (cy - compactH / 2).coerceIn(0, max(0, geo.statusH - compactH))
+        return max(0, y + raw(offsetDp.toFloat()))
+    }
     private val compactText get() = compactH * 0.46f
     private val compactIcon get() = (compactH * 0.70f).roundToInt()
 

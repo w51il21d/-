@@ -161,6 +161,10 @@ class RenderTest {
             assertTrue("${s.name}: pill must be centred on the camera", abs(x + w / 2 - g.holeCx) <= 1)
             assertTrue("${s.name}: pill must be wider than the camera", w > g.holeW)
         }
+        for (s in compact) {
+            val (_, y, _, h) = s.place.toList()
+            assertTrue("${s.name}: compact pill must stay inside the status bar (y=$y h=$h bar=${g.statusH})", y >= 0 && y + h <= g.statusH)
+        }
         for (s in compact.dropLast(1)) {
             assertEquals(s.name, IslandView.Mode.COMPACT, s.mode)
             assertTrue("${s.name}: compact pill too wide (${s.place[2]})", s.place[2] < g.screenW * 0.75)
