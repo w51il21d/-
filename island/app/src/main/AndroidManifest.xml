@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
  <uses-permission android:name="android.permission.VIBRATE"/>
+ <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+ <!-- Granted once through Shizuku so the app can turn its accessibility service back on after updates. -->
+ <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions"/>
+ <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
+ <uses-sdk tools:overrideLibrary="rikka.shizuku.api,rikka.shizuku.provider,rikka.shizuku.shared,rikka.shizuku.aidl"/>
  <queries>
   <intent>
    <action android:name="android.intent.action.MAIN"/>
@@ -27,6 +33,15 @@
    <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
    <meta-data android:name="android.accessibilityservice" android:resource="@xml/island_accessibility"/>
   </service>
+  <receiver android:name=".UpdateReceiver" android:exported="false">
+   <intent-filter>
+    <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+    <action android:name="android.intent.action.BOOT_COMPLETED"/>
+   </intent-filter>
+  </receiver>
+  <provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="${applicationId}.shizuku"
+      android:multiprocess="false" android:enabled="true" android:exported="true"
+      android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
   <service android:name=".NotifListener"
       android:label="@string/app_name"
       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"

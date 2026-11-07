@@ -6,65 +6,72 @@ import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.content.res.Configuration
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
+import rikka.shizuku.Shizuku
 
-/** Settings: permissions, features, size and position, preview buttons. Built in code (no XML layouts). */
+/**
+ * Settings, laid out like a One UI settings page: big title area, rounded cards, rows with thin
+ * dividers, sliders for size and position. Built in code (no XML layouts).
+ */
 class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private var diag: TextView? = null
     private val diagTick = object : Runnable {
         override fun run() { updateDiag(); root.postDelayed(this, 1000) }
     }
-
-    override fun onPause() { super.onPause(); root.removeCallbacks(diagTick) }
-
-    private fun updateDiag() {
-        val s = IslandService.instance
-        diag?.text = if (s == null) "아일랜드 서비스: 꺼짐 (접근성을 껐다 다시 켜 보세요)" else buildString {
-            val g = s.islandGeo; val r = s.islandRect
-            appendLine("서비스: 실행 중 · 창 붙음: ${if (s.windowAttached) "예" else "아니오"}")
-            appendLine("상태바 감지: ${if (s.statusVisible) "보임" else "숨김(전체화면으로 판단)"}${if (s.probeWorks) "" else " · 감지 대기 중"}")
-            appendLine("표시 상태: ${s.islandMode} · 숨김 처리: ${if (s.islandSuppressed) "예" else "아니오"}")
-            if (g != null) appendLine("카메라: x=${g.holeCx} y=${g.holeCy} 지름=${g.holeW} · 상태바 높이=${g.statusH} · 화면 폭=${g.screenW}")
-            if (r != null) appendLine("창: x=${r[0]} y=${r[1]} 폭=${r[2]} 높이=${r[3]}")
-            appendLine("알림 접근 연결: ${if (NotifListener.instance != null) "예" else "아니오"}")
-            append("오류: ${s.lastError ?: "없음"}")
-        }
+    private val shizukuResult = Shizuku.OnRequestPermissionResultListener { _, result ->
+        if (result == PackageManager.PERMISSION_GRANTED) runGrant()
+        else toast("Shizuku에서 허용하지 않았습니다.")
     }
+
     private val dark get() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-    private val cardColor get() = if (dark) 0xFF1C1C1E.toInt() else 0xFFFFFFFF.toInt()
-    private val pageColor get() = if (dark) 0xFF000000.toInt() else 0xFFF2F2F7.toInt()
-    private val textColor get() = if (dark) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
-    private val subColor get() = if (dark) 0xFF98989F.toInt() else 0xFF6C6C70.toInt()
+    private val cardColor get() = if (dark) 0xFF171717.toInt() else 0xFFFCFCFC.toInt()
+    private val pageColor get() = if (dark) 0xFF010101.toInt() else 0xFFF2F2F2.toInt()
+    private val textColor get() = if (dark) 0xFFFAFAFA.toInt() else 0xFF0D0D0D.toInt()
+    private val subColor get() = if (dark) 0xFF8E8E93.toInt() else 0xFF7A7A7A.toInt()
+    private val divider get() = if (dark) 0xFF2A2A2A.toInt() else 0xFFE6E6E6.toInt()
+    private val tonal get() = if (dark) 0xFF26282E.toInt() else 0xFFE8ECF6.toInt()
+    private val accent = 0xFF3E91FF.toInt()
 
     private fun dp(v: Float) = Ui.dp(this, v)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16f), dp(20f), dp(16f), dp(32f)) }
-        val scroll = ScrollView(this).apply { setBackgroundColor(pageColor); addView(root); fitsSystemWindows = true }
+        actionBar?.hide()
+        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12f), 0, dp(12f), dp(36f)) }
+        val scroll = ScrollView(this).apply { setBackgroundColor(pageColor); addView(root); fitsSystemWindows = true; isVerticalScrollBarEnabled = false }
         window.statusBarColor = pageColor
+        window.navigationBarColor = pageColor
         setContentView(scroll)
+        try { Shizuku.addRequestPermissionResultListener(shizukuResult) } catch (_: Throwable) { }
+    }
+
+    override fun onDestroy() {
+        try { Shizuku.removeRequestPermissionResultListener(shizukuResult) } catch (_: Throwable) { }
+        super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
-        actionBar?.hide()
         build()
         root.removeCallbacks(diagTick); root.postDelayed(diagTick, 1000)
+        if (IslandService.instance == null) Restarter.healAsync(this, 0)
     }
+
+    override fun onPause() { super.onPause(); root.removeCallbacks(diagTick) }
 
     // ---------------------------------------------------------------- state
 
@@ -79,164 +86,260 @@ class MainActivity : Activity() {
 
     private fun btOn() = checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
-    // ---------------------------------------------------------------- UI
+    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
+
+    // ---------------------------------------------------------------- page
 
     private fun build() {
         root.removeAllViews()
+        header()
+
         val running = IslandService.instance != null
-        root.addView(text(if (running) "실행 중입니다. 표시할 일(음악·충전·알림 등)이 생기면 카메라 둘레에 나타납니다. 아래 [미리보기]로 바로 확인할 수 있습니다." else "아래 권한을 켜면 시작됩니다.", 15f,
-            if (running) Ui.GREEN else subColor).apply { setPadding(0, dp(4f), 0, dp(8f)) })
-
-        section("권한")
-        card {
-            permRow(it, "접근성: 아일랜드 표시", "화면 위에 아일랜드를 띄웁니다. 꼭 필요합니다.", a11yOn()) {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        if (!a11yOn() || !notifOn() || !btOn()) {
+            section("권한")
+            card {
+                permRow(it, "접근성: 아일랜드 표시", "화면 위에 아일랜드를 띄웁니다. 꼭 필요합니다.", a11yOn()) {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+                permRow(it, "알림 접근", "음악, 통화, 타이머, 길 안내, 알림 미리보기", notifOn()) {
+                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+                permRow(it, "근처 기기", "블루투스 이어폰 이름 표시 (선택)", btOn()) {
+                    requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 1)
+                }
             }
-            permRow(it, "알림 접근", "음악, 통화, 타이머, 길 안내, 알림 미리보기에 필요합니다.", notifOn()) {
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }
-            permRow(it, "근처 기기", "연결된 블루투스 이어폰 이름을 보여줄 때 씁니다. 없어도 됩니다.", btOn()) {
-                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 1)
-            }
-        }
-        if (!a11yOn() || !notifOn()) card {
-            it.addView(text("켜기 버튼이 회색이라 눌리지 않으면", 15f, textColor, bold = true))
-            it.addView(text("직접 설치한 앱이라 Android가 막아 둔 상태입니다.\n① 아래 [앱 정보 열기] → 오른쪽 위 ⋮ → [제한된 설정 허용]\n② 다시 이 화면으로 와서 접근성과 알림 접근을 켜세요.", 14f, subColor)
-                .apply { setPadding(0, dp(4f), 0, dp(8f)) })
-            it.addView(button("앱 정보 열기") {
+            if (!a11yOn() || !notifOn()) note("켜기 화면에서 스위치가 회색이면: [앱 정보 열기] → 오른쪽 위 ⋮ → [제한된 설정 허용] 후 다시 켜세요.", "앱 정보 열기") {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-            })
+            }
         }
 
-        section("보여줄 내용")
+        section("업데이트 후 자동 시작")
         card {
-            toggle(it, Prefs.MEDIA, "음악 재생", "앨범 사진과 재생 막대. 누르면 재생 조작")
-            toggle(it, Prefs.ONGOING, "통화 · 타이머 · 길 안내", "진행 중인 시간과 다음 안내를 계속 표시")
-            toggle(it, Prefs.NOTIF, "알림 미리보기", "새 알림을 잠깐 펼쳐서 보여줍니다")
-            toggle(it, Prefs.CHARGING, "충전", "충전기를 꽂을 때와 완전히 찼을 때")
-            toggle(it, Prefs.LOWBAT, "배터리 부족", "20%, 10%, 5%가 될 때 한 번씩")
-            toggle(it, Prefs.RINGER, "소리 · 진동 · 무음 전환", "소리 모드를 바꿀 때")
-            toggle(it, Prefs.BT, "블루투스 이어폰 연결", "이어폰, 스피커, 차량 연결 시")
-        }
-
-        section("동작")
-        card {
-            toggle(it, Prefs.LOCK_PRIVATE, "잠금 화면에서 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
-            toggle(it, Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라지면 숨김")
-            toggle(it, Prefs.HIDE_LAND, "가로 화면에서 숨기기", "영상·게임을 가로로 볼 때")
-            toggle(it, Prefs.IDLE, "아무것도 없을 때 작은 알약 표시", "카메라 둘레에 검은 알약을 늘 띄웁니다")
-            stepper(it, "알림 표시 시간", Prefs.NOTIF_SEC, 4, 2, 10, 1) { "${it}초" }
-        }
-
-        section("위치와 크기")
-        card {
-            stepper(it, "크기", Prefs.SCALE, 100, 60, 140, 5) { "$it%" }
-            stepper(it, "세로 위치", Prefs.OFFSET, 0, -12, 12, 1) { if (it == 0) "기본" else if (it > 0) "아래로 $it" else "위로 ${-it}" }
+            val ok = Restarter.canWriteSecure(this)
+            val sub = if (ok) "새 버전을 설치해도 아일랜드가 저절로 다시 켜집니다." else "새 버전을 설치하면 접근성이 끊길 수 있습니다. Shizuku로 한 번만 허용하면 저절로 다시 켭니다."
+            permRow(it, "자동으로 다시 켜기", sub, ok) { askShizuku() }
         }
 
         section("미리보기")
         card {
-            it.addView(text("아일랜드가 실행 중일 때 눌러 보세요.", 14f, subColor).apply { setPadding(0, 0, 0, dp(8f)) })
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            row.addView(button("알림") { Demo.notification(this) }, LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(button("충전") { Demo.charging(this) }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8f) })
-            row.addView(button("타이머") { Demo.timer(this) }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8f) })
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6f), 0, dp(6f)) }
+            fun chip(label: String, run: () -> Unit, first: Boolean = false) =
+                row.addView(pill(label, run), LinearLayout.LayoutParams(0, dp(44f), 1f).apply { if (!first) marginStart = dp(8f) })
+            chip("알림", { Demo.notification(this) }, first = true)
+            chip("충전", { Demo.charging(this) })
+            chip("타이머", { Demo.timer(this) })
             it.addView(row)
+            if (!running) it.addView(text("아일랜드가 켜져 있어야 보입니다.", 13f, subColor).apply { setPadding(dp(4f), dp(4f), 0, dp(4f)) })
+        }
+
+        section("보여줄 내용")
+        card {
+            toggle(it, Prefs.MEDIA, "음악 재생", "앨범 사진과 재생 막대, 누르면 재생 조작")
+            toggle(it, Prefs.ONGOING, "통화 · 타이머 · 길 안내", "진행 중인 시간과 다음 안내")
+            toggle(it, Prefs.NOTIF, "알림 미리보기", "새 알림을 잠깐 펼쳐서 보여줌")
+            toggle(it, Prefs.CHARGING, "충전", "충전기를 꽂을 때, 다 찼을 때")
+            toggle(it, Prefs.LOWBAT, "배터리 부족", "20%, 10%, 5%에서 한 번씩")
+            toggle(it, Prefs.RINGER, "소리 · 진동 · 무음 전환", null)
+            toggle(it, Prefs.BT, "블루투스 이어폰 연결", "이어폰, 스피커, 차량", last = true)
+        }
+
+        section("효과와 동작")
+        card {
+            toggle(it, Prefs.GLOW, "빛 효과", "음악 색 번짐, 충전 테두리 빛, 알림 빛")
+            toggle(it, Prefs.LOCK_PRIVATE, "잠금 화면에서 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
+            toggle(it, Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라질 때")
+            toggle(it, Prefs.HIDE_LAND, "가로 화면에서 숨기기", null)
+            toggle(it, Prefs.IDLE, "평소에도 작은 알약 표시", "표시할 내용이 없을 때도 카메라 둘레에", last = true)
+        }
+
+        section("크기와 위치")
+        card {
+            slider(it, "크기", Prefs.SCALE, 100, 60, 140, 5) { "$it%" }
+            slider(it, "세로 위치", Prefs.OFFSET, 0, -12, 12, 1) { if (it == 0) "기본" else if (it > 0) "아래로 $it" else "위로 ${-it}" }
+            slider(it, "알림 표시 시간", Prefs.NOTIF_SEC, 4, 2, 10, 1, last = true) { "${it}초" }
         }
 
         val apps = Prefs.seenApps(this)
         if (apps.isNotEmpty()) {
             section("알림 미리보기 앱")
             card {
-                it.addView(text("체크를 풀면 그 앱의 알림은 아일랜드에 띄우지 않습니다.", 14f, subColor).apply { setPadding(0, 0, 0, dp(4f)) })
                 val ex = Prefs.excluded(this)
-                for (pkg in apps) {
+                apps.forEachIndexed { idx, pkg ->
                     val cb = CheckBox(this).apply {
                         text = Ui.appLabel(this@MainActivity, pkg) ?: pkg
-                        setTextColor(textColor); textSize = 16f; typeface = Fonts.regular(context)
+                        setTextColor(textColor); textSize = 16.5f; typeface = Fonts.regular(context)
+                        buttonTintList = ColorStateList.valueOf(accent)
                         isChecked = pkg !in ex
                         setOnCheckedChangeListener { _, on -> Prefs.setExcluded(this@MainActivity, pkg, !on) }
                     }
-                    it.addView(cb, LinearLayout.LayoutParams(-1, dp(48f)))
+                    it.addView(cb, LinearLayout.LayoutParams(-1, dp(52f)))
+                    if (idx < apps.size - 1) line(it)
                 }
             }
+            note("체크를 풀면 그 앱의 알림은 아일랜드에 띄우지 않습니다.")
         }
 
         section("상태 확인")
-        card { val t = text("", 13f, subColor); diag = t; it.addView(t) }
+        card { val t = text("", 13f, subColor).apply { setLineSpacing(0f, 1.2f); setPadding(0, dp(10f), 0, dp(10f)) }; diag = t; it.addView(t) }
         updateDiag()
 
-        root.addView(text("버전 ${packageManager.getPackageInfo(packageName, 0).versionName}", 12f, subColor)
-            .apply { gravity = Gravity.CENTER; setPadding(0, dp(20f), 0, 0) })
+        root.addView(text("아일랜드 ${packageManager.getPackageInfo(packageName, 0).versionName} · 글꼴 Pretendard (OFL)", 12f, subColor)
+            .apply { gravity = Gravity.CENTER; setPadding(0, dp(24f), 0, 0) })
     }
 
-    private fun text(s: CharSequence, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+    private fun header() {
+        val running = IslandService.instance != null
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            minimumHeight = (resources.displayMetrics.heightPixels * 0.26f).toInt()
+            setPadding(dp(12f), dp(24f), dp(12f), dp(12f))
+        }
+        box.addView(text("아일랜드", 34f, textColor, weight = 600).apply { gravity = Gravity.CENTER })
+        box.addView(text(if (running) "켜져 있음 · 표시할 일이 생기면 카메라 둘레에 나타납니다" else "꺼져 있음 · 아래 권한을 켜 주세요",
+            14f, if (running) 0xFF2EB85C.toInt() else subColor).apply { gravity = Gravity.CENTER; setPadding(0, dp(8f), 0, 0) })
+        root.addView(box, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    private fun updateDiag() {
+        val s = IslandService.instance
+        diag?.text = if (s == null) "아일랜드 서비스: 꺼짐 (접근성을 껐다 다시 켜 보세요)" else buildString {
+            val g = s.islandGeo; val r = s.islandRect
+            appendLine("서비스: 실행 중 · 창 붙음: ${if (s.windowAttached) "예" else "아니오"}")
+            appendLine("상태바 감지: ${if (s.statusVisible) "보임" else "숨김(전체화면으로 판단)"}${if (s.probeWorks) "" else " · 감지 대기 중"}")
+            appendLine("표시 상태: ${s.islandMode} · 숨김 처리: ${if (s.islandSuppressed) "예" else "아니오"}")
+            if (g != null) appendLine("카메라: x=${g.holeCx} y=${g.holeCy} 지름=${g.holeW} · 상태바 ${g.statusH} · 화면 폭 ${g.screenW}")
+            if (r != null) appendLine("알약: x=${r[0]} y=${r[1]} 폭=${r[2]} 높이=${r[3]}")
+            appendLine("알림 접근 연결: ${if (NotifListener.instance != null) "예" else "아니오"} · 자동 재시작: ${if (Restarter.canWriteSecure(this@MainActivity)) "켜짐" else "꺼짐"}")
+            append("오류: ${s.lastError ?: "없음"}")
+        }
+    }
+
+    // ---------------------------------------------------------------- Shizuku
+
+    private fun askShizuku() {
+        when {
+            !Restarter.shizukuRunning() -> toast("Shizuku 앱을 열어 실행한 뒤 다시 눌러 주세요.")
+            !Restarter.shizukuAllowed() -> try { Shizuku.requestPermission(7) } catch (_: Throwable) { toast("Shizuku 권한 요청에 실패했습니다.") }
+            else -> runGrant()
+        }
+    }
+
+    private fun runGrant() {
+        Thread {
+            val ok = Restarter.grantWithShizuku(this)
+            runOnUiThread {
+                toast(if (ok) "허용했습니다. 이제 업데이트 후에도 저절로 켜집니다." else "허용하지 못했습니다. Shizuku가 실행 중인지 확인해 주세요.")
+                build()
+            }
+        }.start()
+    }
+
+    // ---------------------------------------------------------------- building blocks
+
+    private fun text(s: CharSequence, size: Float, color: Int, weight: Int = 400) = TextView(this).apply {
         text = s; textSize = size; setTextColor(color)
-        typeface = if (bold) Fonts.bold(context) else Fonts.regular(context)
+        typeface = when { weight >= 700 -> Fonts.bold(context); weight >= 600 -> Fonts.semibold(context); else -> Fonts.regular(context) }
     }
 
-    private fun button(label: String, onClick: () -> Unit) = Button(this).apply {
-        text = label; isAllCaps = false; typeface = Fonts.semibold(context); setOnClickListener { onClick() }
+    /** Tonal rounded button, One UI style. */
+    private fun pill(label: String, onClick: () -> Unit) = text(label, 15f, accent, weight = 600).apply {
+        gravity = Gravity.CENTER
+        background = Ui.round(tonal, dp(22f).toFloat())
+        setPadding(dp(16f), 0, dp(16f), 0)
+        isClickable = true
+        setOnClickListener { v ->
+            v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(70).withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(160).start() }.start()
+            onClick()
+        }
     }
 
     private fun section(title: String) {
-        root.addView(text(title, 14f, subColor, bold = true).apply { setPadding(dp(14f), dp(22f), 0, dp(8f)) })
+        root.addView(text(title, 14f, subColor, weight = 600).apply { setPadding(dp(22f), dp(26f), 0, dp(10f)) })
+    }
+
+    private fun note(s: String, button: String? = null, onClick: (() -> Unit)? = null) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(22f), dp(10f), dp(22f), 0) }
+        box.addView(text(s, 13f, subColor).apply { setLineSpacing(0f, 1.2f) })
+        if (button != null && onClick != null) box.addView(pill(button, onClick), LinearLayout.LayoutParams(-2, dp(40f)).apply { topMargin = dp(10f) })
+        root.addView(box)
     }
 
     private fun card(fill: (LinearLayout) -> Unit) {
         val c = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = Ui.round(cardColor, dp(22f).toFloat())
-            setPadding(dp(18f), dp(14f), dp(18f), dp(14f))
+            background = Ui.round(cardColor, dp(26f).toFloat())
+            setPadding(dp(22f), dp(6f), dp(22f), dp(6f))
         }
         fill(c)
-        root.addView(c, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4f) })
+        root.addView(c, LinearLayout.LayoutParams(-1, -2))
     }
 
-    private fun twoLine(title: String, sub: String): LinearLayout = LinearLayout(this).apply {
+    private fun line(parent: LinearLayout) {
+        parent.addView(View(this).apply { setBackgroundColor(divider) }, LinearLayout.LayoutParams(-1, 1))
+    }
+
+    private fun twoLine(title: String, sub: String?): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(text(title, 16.5f, textColor))
-        addView(text(sub, 13.5f, subColor).apply { setPadding(0, dp(2f), 0, 0) })
+        addView(text(title, 17f, textColor))
+        if (sub != null) addView(text(sub, 13.5f, subColor).apply { setPadding(0, dp(3f), 0, 0); setLineSpacing(0f, 1.15f) })
+    }
+
+    private fun row(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(64f); setPadding(0, dp(12f), 0, dp(12f))
     }
 
     private fun permRow(parent: LinearLayout, title: String, sub: String, ok: Boolean, open: () -> Unit) {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8f), 0, dp(8f)) }
-        row.addView(twoLine(title, sub), LinearLayout.LayoutParams(0, -2, 1f))
-        if (ok) row.addView(text("켜짐", 15f, Ui.GREEN, bold = true).apply { setPadding(dp(12f), 0, 0, 0) })
-        else row.addView(button("켜기", open))
-        parent.addView(row)
+        if (parent.childCount > 0) line(parent)
+        val r = row()
+        r.addView(twoLine(title, sub), LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(12f) })
+        if (ok) r.addView(text("켜짐", 14f, 0xFF2EB85C.toInt(), weight = 600))
+        else r.addView(pill("켜기", open), LinearLayout.LayoutParams(-2, dp(38f)))
+        parent.addView(r)
     }
 
     @Suppress("DEPRECATION")
-    private fun toggle(parent: LinearLayout, key: String, title: String, sub: String) {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8f), 0, dp(8f)) }
-        row.addView(twoLine(title, sub), LinearLayout.LayoutParams(0, -2, 1f))
+    private fun toggle(parent: LinearLayout, key: String, title: String, sub: String?, last: Boolean = false) {
+        val r = row()
+        r.addView(twoLine(title, sub), LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(12f) })
         val sw = Switch(this).apply {
             isChecked = Prefs.on(this@MainActivity, key)
             setOnCheckedChangeListener { _, on -> Prefs.set(this@MainActivity, key, on) }
         }
-        row.addView(sw)
-        row.setOnClickListener { sw.toggle() }
-        parent.addView(row)
+        r.addView(sw)
+        r.setOnClickListener { sw.toggle() }
+        parent.addView(r)
+        if (!last) line(parent)
     }
 
-    private fun stepper(parent: LinearLayout, title: String, key: String, def: Int, min: Int, max: Int, step: Int, fmt: (Int) -> String) {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(6f), 0, dp(6f)) }
-        row.addView(text(title, 16.5f, textColor), LinearLayout.LayoutParams(0, -2, 1f))
-        val value = text(fmt(Prefs.int(this, key, def)), 15f, textColor, bold = true).apply { gravity = Gravity.CENTER; minWidth = dp(72f) }
-        fun change(d: Int) {
-            val v = (Prefs.int(this, key, def) + d).coerceIn(min, max)
-            Prefs.setInt(this, key, v); value.text = fmt(v)
+    private fun slider(parent: LinearLayout, title: String, key: String, def: Int, min: Int, max: Int, step: Int, last: Boolean = false, fmt: (Int) -> String) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(14f), 0, dp(10f)) }
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(text(title, 17f, textColor), LinearLayout.LayoutParams(0, -2, 1f))
+        val value = text(fmt(Prefs.int(this, key, def)), 15f, accent, weight = 600)
+        top.addView(value)
+        top.addView(text("초기화", 13f, subColor).apply {
+            setPadding(dp(14f), dp(6f), 0, dp(6f))
+        })
+        box.addView(top)
+        val sb = SeekBar(this).apply {
+            this.max = (max - min) / step
+            progress = (Prefs.int(this@MainActivity, key, def) - min) / step
+            progressTintList = ColorStateList.valueOf(accent)
+            thumbTintList = ColorStateList.valueOf(accent)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
+                    val v = min + p * step
+                    value.text = fmt(v)
+                    if (fromUser) Prefs.setInt(this@MainActivity, key, v)
+                }
+                override fun onStartTrackingTouch(s: SeekBar) {}
+                override fun onStopTrackingTouch(s: SeekBar) {}
+            })
         }
-        row.addView(button("−") { change(-step) }, LinearLayout.LayoutParams(dp(52f), -2))
-        row.addView(value)
-        row.addView(button("+") { change(step) }, LinearLayout.LayoutParams(dp(52f), -2))
-        val reset = text("초기화", 13f, Ui.BLUE).apply {
-            setPadding(dp(10f), dp(8f), 0, dp(8f))
-            setOnClickListener { Prefs.setInt(this@MainActivity, key, def); value.text = fmt(def) }
-            visibility = View.VISIBLE
-        }
-        row.addView(reset)
-        parent.addView(row)
+        (top.getChildAt(2) as TextView).setOnClickListener { sb.progress = (def - min) / step; Prefs.setInt(this, key, def) }
+        box.addView(sb, LinearLayout.LayoutParams(-1, dp(40f)).apply { topMargin = dp(4f) })
+        parent.addView(box)
+        if (!last) line(parent)
     }
 }

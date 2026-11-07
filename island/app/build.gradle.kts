@@ -12,8 +12,8 @@ android {
   applicationId = "com.w51il21d.island"
   minSdk = 30
   targetSdk = 35
-  versionCode = 5
-  versionName = "1.1.1"
+  versionCode = 6
+  versionName = "1.2.0"
  }
  compileOptions {
   sourceCompatibility = JavaVersion.VERSION_17
@@ -24,6 +24,8 @@ android {
  lint { checkReleaseBuilds = false }
 }
 dependencies {
+ implementation("dev.rikka.shizuku:api:13.1.5")
+ implementation("dev.rikka.shizuku:provider:13.1.5")
  testImplementation("junit:junit:4.13.2")
  testImplementation("org.robolectric:robolectric:4.14.1")
 }

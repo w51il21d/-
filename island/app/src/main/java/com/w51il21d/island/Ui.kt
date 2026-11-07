@@ -51,6 +51,17 @@ object Ui {
         } catch (_: Exception) { false }
     }
 
+    /** Main colour of an app icon or picture, for the glow. */
+    fun accentOf(d: Drawable?): Int {
+        d ?: return WHITE
+        return try {
+            val b = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888)
+            val c = android.graphics.Canvas(b)
+            val old = d.bounds; d.setBounds(0, 0, 24, 24); d.draw(c); d.bounds = old
+            accentOf(b)
+        } catch (_: Exception) { WHITE }
+    }
+
     /** A lively colour from album art for the music bars; white if the art is grey. */
     fun accentOf(b: Bitmap?): Int {
         b ?: return WHITE

@@ -1,6 +1,7 @@
 package com.w51il21d.island
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.PixelFormat
@@ -99,6 +100,14 @@ class IslandService : AccessibilityService() {
         updateSuppressed()
         events = SystemEvents(this).also { it.register() }
         Prefs.sp(this).registerOnSharedPreferenceChangeListener(prefListener)
+        Restarter.markRunning(this, true)
+    }
+
+    /** Called when the user turns the service off (not when the app is updated, which just kills it). */
+    override fun onUnbind(intent: Intent?): Boolean {
+        Restarter.markRunning(this, false)
+        teardown()
+        return super.onUnbind(intent)
     }
 
     /** Invisible window over the pill; hands its touches to the drawing window's views. */
@@ -157,12 +166,13 @@ class IslandService : AccessibilityService() {
         island.offsetDp = Prefs.offset(this)
         island.scale = Prefs.scale(this) / 100f
         island.idlePill = Prefs.on(this, Prefs.IDLE)
+        island.glowOn = Prefs.on(this, Prefs.GLOW)
     }
 
     private fun onPref(key: String?) {
         when (key) {
             Prefs.OFFSET, Prefs.SCALE -> { applyPrefs(); island.refresh() }
-            Prefs.IDLE -> { applyPrefs(); island.show(Hub.current()) }
+            Prefs.IDLE, Prefs.GLOW -> { applyPrefs(); island.show(Hub.current()) }
             Prefs.HIDE_LAND, Prefs.HIDE_FULL -> updateSuppressed()
             Prefs.MEDIA -> NotifListener.instance?.refreshMedia()
             Prefs.ONGOING -> NotifListener.instance?.rescan()

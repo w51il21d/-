@@ -14,6 +14,7 @@ object Prefs {
     const val IDLE = "idle_pill"
     const val HIDE_LAND = "hide_landscape"
     const val HIDE_FULL = "hide_fullscreen"
+    const val GLOW = "glow"
     const val LOCK_PRIVATE = "lock_private"
     const val OFFSET = "offset_dp"
     const val SCALE = "scale_pct"
