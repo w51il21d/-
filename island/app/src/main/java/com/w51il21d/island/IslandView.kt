@@ -258,6 +258,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         pill.translationX = geo.holeCx - geo.screenW / 2f
         val r = radiusFor(hh)
         bg.cornerRadius = r
+        pill.invalidateOutline()
         glow.corner = r
         glow.invalidate()
     }
@@ -625,7 +626,9 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         if (media != null) {
             // Album colour washes in from the top, One UI player style.
             col.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(70, Color.red(i.accent), Color.green(i.accent), Color.blue(i.accent)), Color.TRANSPARENT))
+                intArrayOf(Color.argb(70, Color.red(i.accent), Color.green(i.accent), Color.blue(i.accent)), Color.TRANSPARENT)).apply {
+                cornerRadius = compactH / 2f + raw(16f)
+            }
             col.addView(mainRow(i, raw(64f), 17f, 1, 26f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(6f) })
             col.addView(mediaControls(media))
         } else {
