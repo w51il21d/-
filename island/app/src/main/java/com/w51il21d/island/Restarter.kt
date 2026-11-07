@@ -26,7 +26,14 @@ object Restarter {
     /** Blocking; call off the main thread. */
     fun heal(c: Context) {
         try { NotificationListenerService.requestRebind(ComponentName(c, NotifListener::class.java)) } catch (_: Exception) { }
-        if (IslandService.instance != null) return
+        val running = IslandService.instance
+        if (running != null) {
+            if (running.windowAttached) return
+            // Connected but the window never appeared: try to re-attach it first.
+            android.os.Handler(android.os.Looper.getMainLooper()).post { running.ensureWindows() }
+            Thread.sleep(800)
+            if (running.windowAttached) return
+        }
         if (!Prefs.sp(c).getBoolean(WAS_RUNNING, false) || !canWriteSecure(c)) return
         val cr = c.contentResolver
         val me = ComponentName(c, IslandService::class.java)

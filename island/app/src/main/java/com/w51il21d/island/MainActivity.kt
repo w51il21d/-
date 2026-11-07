@@ -68,7 +68,8 @@ class MainActivity : Activity() {
         super.onResume()
         build()
         root.removeCallbacks(diagTick); root.postDelayed(diagTick, 1000)
-        if (IslandService.instance == null) Restarter.healAsync(this, 0)
+        IslandService.instance?.ensureWindows()
+        if (IslandService.instance?.windowAttached != true) Restarter.healAsync(this, 0)
     }
 
     override fun onPause() { super.onPause(); root.removeCallbacks(diagTick) }

@@ -92,15 +92,48 @@ class IslandService : AccessibilityService() {
         island.onHold = { Hub.hold(it) }
         island.onDismissAlert = { Hub.dismissAlert() }
         applyPrefs()
-        try { wm.addView(island, lp) } catch (e: Exception) { lastError = "창 추가 실패: ${e.message}"; return }
+        try { wm.addView(island, lp) } catch (e: Exception) { lastError = "창 추가 실패: ${e.message}" }
         addTouchWindow()
         addProbe()
+        // Right after an app update the window can fail to appear; check again a few times.
+        for (d in longArrayOf(1000, 3000, 6000, 12000)) handler.postDelayed(ensure, d)
         Hub.addListener(hubListener)
         island.show(Hub.current())
         updateSuppressed()
         events = SystemEvents(this).also { it.register() }
         Prefs.sp(this).registerOnSharedPreferenceChangeListener(prefListener)
         Restarter.markRunning(this, true)
+        registerReceiver(screenRx, android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT)
+        }, RECEIVER_EXPORTED)
+    }
+
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val ensure = Runnable { ensureWindows() }
+    private val screenRx = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: Intent) { handler.removeCallbacks(ensure); handler.postDelayed(ensure, 300) }
+    }
+
+    /** Re-attaches any window that is missing and re-reads the camera position. Safe to call any time. */
+    fun ensureWindows() {
+        if (instance !== this || !::island.isInitialized) return
+        var reattached = false
+        if (!island.isAttachedToWindow) {
+            try { wm.addView(island, lp); reattached = true; lastError = null } catch (e: Exception) { lastError = "창 다시 붙이기 실패: ${e.message}" }
+        }
+        val t = touchView
+        if (t == null || !t.isAttachedToWindow) {
+            t?.let { try { wm.removeView(it) } catch (_: Exception) { } }
+            touchView = null; addTouchWindow()
+        }
+        val p = probe
+        if (p == null || !p.isAttachedToWindow) {
+            p?.let { try { wm.removeView(it) } catch (_: Exception) { } }
+            probe = null; addProbe()
+        }
+        val g = geometry()
+        if (g != island.geo) island.setGeometry(g) else if (reattached) island.refresh()
+        updateSuppressed()
     }
 
     /** Called when the user turns the service off (not when the app is updated, which just kills it). */
@@ -228,6 +261,8 @@ class IslandService : AccessibilityService() {
         if (instance !== this) return
         instance = null
         Prefs.sp(this).unregisterOnSharedPreferenceChangeListener(prefListener)
+        handler.removeCallbacks(ensure)
+        try { unregisterReceiver(screenRx) } catch (_: Exception) { }
         events?.unregister(); events = null
         if (::island.isInitialized) {
             Hub.removeListener(hubListener)
