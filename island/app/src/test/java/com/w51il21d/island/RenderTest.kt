@@ -32,7 +32,7 @@ import java.time.Duration
 import kotlin.math.abs
 
 /**
- * Renders every island state on a mock S24+ status bar and writes build/qa/*.png,
+ * Renders every island state on a mock S24+ status bar and writes PNG files to build/qa,
  * so the look can be checked without a phone. Also checks the pill stays centred on the camera.
  */
 @RunWith(RobolectricTestRunner::class)
