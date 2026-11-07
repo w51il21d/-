@@ -81,7 +81,8 @@ class IslandService : AccessibilityService() {
         island = IslandView(this, geometry(), object : IslandView.Host {
             override fun frame(h: Int) {
                 lp.height = h
-                if (island.isAttachedToWindow) try { wm.updateViewLayout(island, lp) } catch (e: Exception) { lastError = "창 갱신 실패: ${e.message}" }
+                if (island.parent != null) try { wm.updateViewLayout(island, lp) } catch (e: Exception) { lastError = "창 갱신 실패: ${e.message}"; EventLog.add("창 크기 갱신 실패") }
+                else EventLog.add("창이 없어 크기 갱신 못 함")
             }
             override fun touch(x: Int, y: Int, w: Int, h: Int, touchable: Boolean) {
                 tlp.x = x; tlp.y = y; tlp.width = w; tlp.height = h
@@ -113,7 +114,27 @@ class IslandService : AccessibilityService() {
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val ensure = Runnable { ensureWindows() }
     private val screenRx = object : android.content.BroadcastReceiver() {
-        override fun onReceive(c: android.content.Context, i: Intent) { handler.removeCallbacks(ensure); handler.postDelayed(ensure, 300) }
+        override fun onReceive(c: android.content.Context, i: Intent) {
+            handler.removeCallbacks(rebuild); handler.postDelayed(rebuild, 300)
+        }
+    }
+    private val rebuild = Runnable { recreateWindows("화면 켜짐") }
+
+    /**
+     * Removes and re-adds the drawing and touch windows. After the screen was off, an overlay
+     * window can stay "attached" yet never draw again; a fresh window always draws.
+     */
+    fun recreateWindows(why: String) {
+        if (instance !== this || !::island.isInitialized) return
+        try { if (island.parent != null) wm.removeViewImmediate(island) } catch (_: Exception) { }
+        touchView?.let { try { wm.removeViewImmediate(it) } catch (_: Exception) { } }
+        touchView = null
+        try { wm.addView(island, lp); lastError = null } catch (e: Exception) { lastError = "창 다시 만들기 실패: ${e.message}" }
+        addTouchWindow()
+        val g = geometry()
+        if (g != island.geo) island.setGeometry(g) else island.refresh()
+        updateSuppressed()
+        EventLog.add("창 다시 만듦 ($why)")
     }
 
     /** Re-attaches any window that is missing and re-reads the camera position. Safe to call any time. */

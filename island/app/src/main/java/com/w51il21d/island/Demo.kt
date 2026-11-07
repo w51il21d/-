@@ -24,8 +24,8 @@ object Demo {
         actions = listOf(Act("일시정지") {}, Act("취소", Act.Style.DANGER) { Hub.removeLive("demo:timer") }),
     )
 
-    fun notification(c: Context) = Hub.alert(notificationItem(c))
-    fun charging(c: Context) = Hub.alert(chargingItem(c))
+    fun notification(c: Context) { EventLog.add("미리보기: 알림"); Hub.alert(notificationItem(c)) }
+    fun charging(c: Context) { EventLog.add("미리보기: 충전"); Hub.alert(chargingItem(c)) }
 
     /** Shows a 3-minute timer for 20 seconds. */
     fun timer(c: Context) {

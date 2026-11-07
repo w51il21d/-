@@ -174,7 +174,12 @@ class MainActivity : Activity() {
         }
 
         section("상태 확인")
-        card { val t = text("", 13f, subColor).apply { setLineSpacing(0f, 1.2f); setPadding(0, dp(10f), 0, dp(10f)) }; diag = t; it.addView(t) }
+        card {
+            val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12f), 0, dp(4f)) }
+            r.addView(pill("아일랜드 창 다시 만들기") { IslandService.instance?.recreateWindows("직접 누름"); toast("다시 만들었습니다. 미리보기를 눌러 보세요.") }, LinearLayout.LayoutParams(-1, dp(44f)))
+            it.addView(r)
+            val t = text("", 13f, subColor).apply { setLineSpacing(0f, 1.2f); setPadding(0, dp(10f), 0, dp(10f)) }; diag = t; it.addView(t)
+        }
         updateDiag()
 
         root.addView(text("아일랜드 ${packageManager.getPackageInfo(packageName, 0).versionName} · 글꼴 Pretendard (OFL)", 12f, subColor)

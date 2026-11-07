@@ -165,6 +165,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         }
         if (mode == Mode.EXPANDED && target != Mode.EXPANDED) { h.removeCallbacks(autoCollapse); onHold(false) }
         val keyChanged = prev?.key != next?.key
+        if (keyChanged || target != mode) EventLog.add("모양: $mode → $target${if (next != null) " (${next.label ?: next.title})" else ""}${if (suppressed) " · 숨김 중" else ""}")
         transition(target, keyChanged, leaving = if (keyChanged) prev else null)
         if (keyChanged && next != null) arrivalGlow(next)
         updateBreathing()
