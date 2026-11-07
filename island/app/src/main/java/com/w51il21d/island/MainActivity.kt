@@ -99,10 +99,10 @@ class MainActivity : Activity() {
         if (!a11yOn() || !notifOn() || !btOn()) {
             section("권한")
             card {
-                permRow(it, R.drawable.ic_pill, 0xFF1C1C1E.toInt(), "접근성: 아일랜드 표시", "화면 위에 아일랜드를 띄웁니다. 꼭 필요합니다.", a11yOn()) {
+                permRow(it, R.drawable.ic_pill, 0xFF1C1C1E.toInt(), "접근성: 아일랜드 표시", "아일랜드를 띄웁니다 (필수)", a11yOn()) {
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
-                permRow(it, R.drawable.ic_notify, 0xFFFF9500.toInt(), "알림 접근", "음악, 통화, 타이머, 길 안내, 알림 미리보기", notifOn()) {
+                permRow(it, R.drawable.ic_notify, 0xFFFF9500.toInt(), "알림 접근", "음악·통화·타이머·알림 (필수)", notifOn()) {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
                 permRow(it, R.drawable.ic_headset, 0xFF0A84FF.toInt(), "근처 기기", "블루투스 이어폰 이름 표시 (선택)", btOn()) {
@@ -126,7 +126,7 @@ class MainActivity : Activity() {
 
         section("보여줄 내용")
         card {
-            toggle(it, R.drawable.ic_music, 0xFFFF2D55.toInt(), Prefs.MEDIA, "음악 재생", "앨범 사진과 재생 막대, 누르면 재생 조작")
+            toggle(it, R.drawable.ic_music, 0xFFFF2D55.toInt(), Prefs.MEDIA, "음악 재생", "앨범 사진, 재생 막대, 재생 조작")
             toggle(it, R.drawable.ic_phone, 0xFF34C759.toInt(), Prefs.ONGOING, "통화 · 타이머 · 길 안내", "진행 중인 시간과 다음 안내")
             toggle(it, R.drawable.ic_notify, 0xFFFF9500.toInt(), Prefs.NOTIF, "알림 미리보기", "새 알림을 잠깐 펼쳐서 보여줌")
             toggle(it, R.drawable.ic_bolt, 0xFF30B94D.toInt(), Prefs.CHARGING, "충전", "충전기를 꽂을 때, 다 찼을 때")
@@ -138,7 +138,7 @@ class MainActivity : Activity() {
         section("효과와 동작")
         card {
             toggle(it, R.drawable.ic_sparkle, 0xFFFFB800.toInt(), Prefs.GLOW, "빛 효과", "음악 색 번짐, 충전 테두리 빛, 알림 빛")
-            toggle(it, R.drawable.ic_lock, 0xFF8E8E93.toInt(), Prefs.LOCK_PRIVATE, "잠금 화면에서 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
+            toggle(it, R.drawable.ic_lock, 0xFF8E8E93.toInt(), Prefs.LOCK_PRIVATE, "잠금 화면 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
             toggle(it, R.drawable.ic_fullscreen, 0xFF5AC8FA.toInt(), Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라질 때")
             toggle(it, R.drawable.ic_rotate, 0xFF64D2FF.toInt(), Prefs.HIDE_LAND, "가로 화면에서 숨기기", null)
             toggle(it, R.drawable.ic_pill, 0xFF3A3A3C.toInt(), Prefs.IDLE, "평소에도 작은 알약 표시", "표시할 내용이 없을 때도 카메라 둘레에", last = true)
