@@ -137,6 +137,8 @@ class MainActivity : Activity() {
 
         section("효과와 동작")
         card {
+            toggle(it, R.drawable.ic_bell, 0xFFFF9500.toInt(), Prefs.SHOW_QUIET, "조용한 알림도 표시", "앱이 소리 없이 보내는 알림도 띄움")
+            toggle(it, R.drawable.ic_notify, 0xFF34C759.toInt(), Prefs.SHOW_FRONT, "보고 있는 앱 알림도 표시", "카톡을 보는 중에 온 카톡 알림도 띄움")
             toggle(it, R.drawable.ic_sparkle, 0xFFFFB800.toInt(), Prefs.GLOW, "빛 효과", "음악 색 번짐, 충전 테두리 빛, 알림 빛")
             toggle(it, R.drawable.ic_lock, 0xFF8E8E93.toInt(), Prefs.LOCK_PRIVATE, "잠금 화면 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
             toggle(it, R.drawable.ic_fullscreen, 0xFF5AC8FA.toInt(), Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라질 때")

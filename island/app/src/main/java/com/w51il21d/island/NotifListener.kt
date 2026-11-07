@@ -86,13 +86,15 @@ class NotifListener : NotificationListenerService() {
         val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked
         val name = Ui.appLabel(this, pkg) ?: pkg
         if (!pm.isInteractive) { EventLog.add("$name: 화면 꺼짐이라 건너뜀"); return }
-        val inFront = !locked && pkg == IslandService.foregroundPkg
+        val inFront = !locked && pkg == IslandService.foregroundPkg && !Prefs.on(this, Prefs.SHOW_FRONT)
+        // Quiet (low/minimum) notifications: optionally shown too, but never ones the app marked "silent in shade only" when hidden.
+        val effectiveImportance = if (Prefs.on(this, Prefs.SHOW_QUIET) && importance >= 1) 3 else importance
         val groupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0
         val excluded = pkg in Prefs.excluded(this)
         if (!Classify.shouldAlert(
                 ongoing = sbn.isOngoing,
                 groupSummary = groupSummary,
-                importance = importance,
+                importance = effectiveImportance,
                 passesDnd = passesDnd,
                 repeat = repeat,
                 hasTitle = !title.isNullOrBlank(),
@@ -102,7 +104,7 @@ class NotifListener : NotificationListenerService() {
             val why = when {
                 sbn.isOngoing -> "진행 중 알림"
                 groupSummary -> "묶음 요약"
-                importance < 3 -> "조용한 알림(중요도 $importance)"
+                effectiveImportance < 3 -> "조용한 알림(중요도 $importance)"
                 !passesDnd -> "방해 금지"
                 repeat -> "같은 내용 반복"
                 title.isNullOrBlank() -> "제목 없음"

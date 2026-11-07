@@ -15,6 +15,8 @@ object Prefs {
     const val HIDE_LAND = "hide_landscape"
     const val HIDE_FULL = "hide_fullscreen"
     const val GLOW = "glow"
+    const val SHOW_QUIET = "show_quiet"
+    const val SHOW_FRONT = "show_front"
     const val LOCK_PRIVATE = "lock_private"
     const val OFFSET = "offset_dp"
     const val SCALE = "scale_pct"
@@ -22,7 +24,7 @@ object Prefs {
     private const val EXCLUDED = "excluded"
     private const val SEEN = "seen_apps"
 
-    private val defaults = mapOf(IDLE to false)
+    private val defaults = mapOf(IDLE to false, SHOW_QUIET to false, SHOW_FRONT to false)
 
     fun sp(c: Context): SharedPreferences = c.getSharedPreferences("island", Context.MODE_PRIVATE)
     fun on(c: Context, key: String) = sp(c).getBoolean(key, defaults[key] ?: true)
