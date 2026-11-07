@@ -2,6 +2,8 @@ package com.w51il21d.island
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -23,6 +25,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.Chronometer
@@ -117,7 +120,12 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
                 return true
             }
         })
+        pill.pivotY = 0f
         pill.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { pill.pivotX = pill.width / 2f; pill.animate().scaleX(0.95f).scaleY(0.95f).setDuration(110).setInterpolator(DecelerateInterpolator()).start() }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pill.animate().scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(OvershootInterpolator(3f)).start()
+            }
             gd.onTouchEvent(e)
             if (mode == Mode.EXPANDED) restartAutoCollapse()
             true
@@ -180,9 +188,9 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     private fun sp(v: Float) = v * geo.density
     /** Pill height: fits inside the status bar (at 100% size) while still covering the camera. */
     private val compactH: Int get() {
-        val want = (geo.statusH * 0.76f * scale).roundToInt()
-        val floor = min(geo.holeH + raw(4f), geo.statusH)
-        val h = max(want, floor)
+        val d = geo.holeW
+        val want = if (d > 0) (d * 1.35f * scale).roundToInt() else (geo.statusH * 0.70f * scale).roundToInt()
+        val h = max(want, (d * 1.08f).roundToInt())
         return if (scale <= 1f) min(h, geo.statusH - raw(2f)) else h
     }
     private val wideW get() = geo.screenW - raw(20f)
@@ -230,7 +238,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         val th: Int
         when (target) {
             Mode.HIDDEN -> { tw = compactH; th = compactH }
-            Mode.IDLE -> { tw = geo.holeW + (compactH * 1.5f).roundToInt(); th = compactH }
+            Mode.IDLE -> { tw = geo.holeW + (compactH * 1.1f).roundToInt(); th = compactH }
             Mode.COMPACT -> { tw = compactWidth(i!!); th = compactH }
             Mode.BANNER -> { tw = wideW; th = compactH + raw(62f) }
             Mode.EXPANDED -> {
@@ -251,10 +259,10 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         val fade = animated && (modeChanged || keyChanged)
         if (next != null) {
             pill.addView(next, LayoutParams(tw, th, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-            if (fade) { next.alpha = 0f; next.animate().alpha(1f).setStartDelay(120).setDuration(170).start() }
+            if (fade) enter(next, if (modeChanged) 110L else 40L)
         }
         if (old != null) {
-            if (fade) old.animate().alpha(0f).setStartDelay(0).setDuration(90).withEndAction { pill.removeView(old) }.start()
+            if (fade) old.animate().alpha(0f).scaleX(0.94f).scaleY(0.94f).setStartDelay(0).setDuration(110).withEndAction { pill.removeView(old) }.start()
             else pill.removeView(old)
         }
         if (target != Mode.HIDDEN) pill.visibility = VISIBLE
@@ -266,11 +274,13 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
             return
         }
         val grow = tw * th >= fromW * fromH
-        val slack = if (grow) raw(10f) else 0
-        place(max(fromW, tw) + slack, max(fromH, th) + slack)
+        // The spring overshoots by up to ~16% of the change; give the window room for it.
+        val slackW = if (tw > fromW) ((tw - fromW) * 0.18f).roundToInt() + raw(2f) else 0
+        val slackH = if (th > fromH) ((th - fromH) * 0.18f).roundToInt() + raw(2f) else 0
+        place(max(fromW, tw) + slackW, max(fromH, th) + slackH)
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = if (grow) 460 else 320
-            interpolator = if (grow) OvershootInterpolator(0.8f) else PathInterpolator(0.3f, 0f, 0.1f, 1f)
+            duration = if (grow) 560 else 440
+            interpolator = if (grow) Spring(5.2f, 9.5f) else Spring(7.5f, 8f)
             addUpdateListener { a ->
                 val f = a.animatedValue as Float
                 applySize(fromW + ((tw - fromW) * f).roundToInt(), fromH + ((th - fromH) * f).roundToInt())
@@ -286,6 +296,39 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
             })
             start()
         }
+    }
+
+    /** Damped spring: quick, with a small bounce, like a real island. */
+    private class Spring(private val damping: Float, private val freq: Float) : android.view.animation.Interpolator {
+        override fun getInterpolation(t: Float) = 1f - kotlin.math.exp(-damping * t) * kotlin.math.cos(freq * t)
+    }
+
+    /** Children rise in one after another. */
+    private fun enter(v: View, delay: Long) {
+        val kids = (v as? ViewGroup)?.let { g -> (0 until g.childCount).map { g.getChildAt(it) } }?.takeIf { it.isNotEmpty() } ?: listOf(v)
+        kids.forEachIndexed { idx, k ->
+            k.alpha = 0f; k.translationY = raw(5f).toFloat(); k.scaleX = 0.9f; k.scaleY = 0.9f
+            k.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+                .setStartDelay(delay + idx * 45L).setDuration(280).setInterpolator(DecelerateInterpolator(1.8f)).start()
+        }
+    }
+
+    /** A little gesture on the icon that says what happened. */
+    private fun accent(icon: View, i: Item) {
+        if (!animate) return
+        val k = i.key
+        val a: Animator = when {
+            "charge" in k -> ObjectAnimator.ofPropertyValuesHolder(icon,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.35f, 1f, 1.25f, 1f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.35f, 1f, 1.25f, 1f)).setDuration(760)
+            k == "ringer" || i.kind == Kind.CALL -> ObjectAnimator.ofFloat(icon, View.ROTATION, 0f, -20f, 18f, -14f, 10f, -5f, 0f).setDuration(620)
+            k == "lowbat" -> ObjectAnimator.ofFloat(icon, View.ALPHA, 1f, 0.25f, 1f, 0.25f, 1f).setDuration(900)
+            else -> ObjectAnimator.ofPropertyValuesHolder(icon,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 0.6f, 1.15f, 1f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.6f, 1.15f, 1f)).setDuration(420)
+        }
+        a.startDelay = 260
+        a.start()
     }
 
     private fun restartAutoCollapse() {
@@ -316,7 +359,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         text = s
         setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
         setTextColor(color)
-        if (bold) typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        typeface = if (bold) Fonts.bold(context) else Fonts.regular(context)
         maxLines = lines
         ellipsize = TextUtils.TruncateAt.END
         includeFontPadding = false
@@ -345,7 +388,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         isCountDown = i.countDown
         setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
         setTextColor(color)
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        typeface = Fonts.bold(context)
         fontFeatureSettings = "tnum"
         includeFontPadding = false
         start()
@@ -365,7 +408,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     }
 
     private fun compactRightWidth(i: Item): Int {
-        val p = Paint().apply { textSize = compactText; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+        val p = Paint().apply { textSize = compactText; typeface = Fonts.bold(context) }
         return when {
             i.media != null -> (compactH * 0.62f).roundToInt()
             i.chronoBase != null -> p.measureText(chronoSample(i)).roundToInt()
@@ -376,14 +419,16 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
 
     private fun compactWidth(i: Item): Int {
         val pad = (compactH - compactIcon) / 2 + raw(3f)
-        val side = max((compactH * 1.45f).roundToInt(), pad + max(compactIcon, compactRightWidth(i)) + raw(10f))
+        val side = max((compactH * 1.3f).roundToInt(), pad + max(compactIcon, compactRightWidth(i)) + raw(10f))
         return min(geo.holeW + raw(6f) + side * 2, wideW)
     }
 
     private fun buildCompact(i: Item): View {
         val f = FrameLayout(context)
         val pad = (compactH - compactIcon) / 2 + raw(3f)
-        f.addView(iconView(i, compactIcon), LayoutParams(compactIcon, compactIcon, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = pad })
+        val ic = iconView(i, compactIcon)
+        f.addView(ic, LayoutParams(compactIcon, compactIcon, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = pad })
+        if (i.kind != Kind.MEDIA) accent(ic, i)
         compactRight(i)?.let { r ->
             val lp = if (r is EqView) LayoutParams((compactH * 0.62f).roundToInt(), (compactH * 0.5f).roundToInt(), Gravity.END or Gravity.CENTER_VERTICAL)
             else LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL)
@@ -416,7 +461,9 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         col.addView(topRow(i, "지금", 0), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, compactH))
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val isz = raw(40f)
-        row.addView(iconView(i, isz), LinearLayout.LayoutParams(isz, isz).apply { marginEnd = raw(12f) })
+        val ic = iconView(i, isz)
+        row.addView(ic, LinearLayout.LayoutParams(isz, isz).apply { marginEnd = raw(12f) })
+        accent(ic, i)
         val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         texts.addView(tv(i.title, sp(15f), Ui.WHITE, bold = true))
         if (!i.text.isNullOrBlank()) texts.addView(tv(i.text, sp(14f), Ui.GREY), LinearLayout.LayoutParams(-2, -2).apply { topMargin = raw(3f) })

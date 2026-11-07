@@ -13,6 +13,7 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * Hosts the island window. An accessibility overlay can sit on top of the status bar and
@@ -77,22 +78,33 @@ class IslandService : AccessibilityService() {
         Prefs.sp(this).registerOnSharedPreferenceChangeListener(prefListener)
     }
 
-    /** 1×1 invisible window that tells us when an app hides the status bar (videos, games). */
+    /** True once the probe has ever been pushed below a visible status bar; until then we trust nothing. */
+    var probeWorks = false
+        private set
+
+    /**
+     * Full-height, 1-pixel-wide invisible window that does NOT draw under the status bar.
+     * While the status bar shows, Android pushes it down (top > 0); in fullscreen apps it starts at 0.
+     */
     private fun addProbe() {
         val v = View(this)
-        v.setOnApplyWindowInsetsListener { _, ins ->
-            statusVisible = ins.isVisible(WindowInsets.Type.statusBars())
-            updateSuppressed(); ins
+        val check = {
+            val loc = IntArray(2); v.getLocationOnScreen(loc)
+            if (loc[1] > 0) probeWorks = true
+            val vis = !probeWorks || loc[1] > 0
+            if (vis != statusVisible) { statusVisible = vis; updateSuppressed() }
         }
-        v.viewTreeObserver.addOnGlobalLayoutListener {
-            v.rootWindowInsets?.let { statusVisible = it.isVisible(WindowInsets.Type.statusBars()); updateSuppressed() }
-        }
+        v.viewTreeObserver.addOnGlobalLayoutListener { check() }
+        v.setOnApplyWindowInsetsListener { view, ins -> view.post { check() }; ins }
         val plp = WindowManager.LayoutParams(
-            1, 1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            1, WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT,
-        ).apply { gravity = Gravity.TOP or Gravity.START; title = "IslandProbe" }
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            fitInsetsTypes = WindowInsets.Type.statusBars()
+            title = "IslandProbe"
+        }
         try { wm.addView(v, plp); probe = v } catch (e: Exception) { lastError = "감지 창 추가 실패: ${e.message}" }
     }
 
@@ -135,8 +147,9 @@ class IslandService : AccessibilityService() {
             screenW = b.width(),
             holeCx = hole?.centerX() ?: (b.width() / 2),
             holeCy = hole?.centerY() ?: (sb / 2),
-            holeW = hole?.width() ?: 0,
-            holeH = hole?.height() ?: 0,
+            // Samsung reports the cutout from the top edge down to the lens, so the real diameter is the width.
+            holeW = hole?.let { min(it.width(), it.height()) } ?: 0,
+            holeH = hole?.let { min(it.width(), it.height()) } ?: 0,
             statusH = sb,
             density = d,
             landscape = b.width() > b.height(),

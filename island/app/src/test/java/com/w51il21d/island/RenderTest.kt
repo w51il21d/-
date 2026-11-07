@@ -45,7 +45,8 @@ class RenderTest {
     // Approximate S24+ (1080p mode scaled to this density): camera hole about 15dp wide, centred, status bar about 36dp.
     private val geo get() = Geo(
         screenW = (384 * d).toInt(), holeCx = (192 * d).toInt(), holeCy = (18 * d).toInt(),
-        holeW = (15 * d).toInt(), holeH = (15 * d).toInt(), statusH = (36 * d).toInt(), density = d,
+        // Measured on the user's S24+ (QHD+): lens 68px, status bar 127px at 3.5x → 19.4dp / 36.3dp.
+        holeW = (19.4f * d).toInt(), holeH = (19.4f * d).toInt(), statusH = (36.3f * d).toInt(), density = d,
     )
 
     @Before fun setUp() { Hub.reset(); IslandView.animate = false }

@@ -35,7 +35,7 @@ class MainActivity : Activity() {
         diag?.text = if (s == null) "아일랜드 서비스: 꺼짐 (접근성을 껐다 다시 켜 보세요)" else buildString {
             val g = s.islandGeo; val r = s.islandRect
             appendLine("서비스: 실행 중 · 창 붙음: ${if (s.windowAttached) "예" else "아니오"}")
-            appendLine("상태바 감지: ${if (s.statusVisible) "보임" else "숨김(전체화면으로 판단)"}")
+            appendLine("상태바 감지: ${if (s.statusVisible) "보임" else "숨김(전체화면으로 판단)"}${if (s.probeWorks) "" else " · 감지 대기 중"}")
             appendLine("표시 상태: ${s.islandMode} · 숨김 처리: ${if (s.islandSuppressed) "예" else "아니오"}")
             if (g != null) appendLine("카메라: x=${g.holeCx} y=${g.holeCy} 지름=${g.holeW} · 상태바 높이=${g.statusH} · 화면 폭=${g.screenW}")
             if (r != null) appendLine("창: x=${r[0]} y=${r[1]} 폭=${r[2]} 높이=${r[3]}")
@@ -130,7 +130,7 @@ class MainActivity : Activity() {
 
         section("위치와 크기")
         card {
-            stepper(it, "크기", Prefs.SCALE, 100, 80, 130, 5) { "$it%" }
+            stepper(it, "크기", Prefs.SCALE, 100, 60, 140, 5) { "$it%" }
             stepper(it, "세로 위치", Prefs.OFFSET, 0, -12, 12, 1) { if (it == 0) "기본" else if (it > 0) "아래로 $it" else "위로 ${-it}" }
         }
 
@@ -153,7 +153,7 @@ class MainActivity : Activity() {
                 for (pkg in apps) {
                     val cb = CheckBox(this).apply {
                         text = Ui.appLabel(this@MainActivity, pkg) ?: pkg
-                        setTextColor(textColor); textSize = 16f
+                        setTextColor(textColor); textSize = 16f; typeface = Fonts.regular(context)
                         isChecked = pkg !in ex
                         setOnCheckedChangeListener { _, on -> Prefs.setExcluded(this@MainActivity, pkg, !on) }
                     }
@@ -172,11 +172,11 @@ class MainActivity : Activity() {
 
     private fun text(s: CharSequence, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
         text = s; textSize = size; setTextColor(color)
-        if (bold) typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        typeface = if (bold) Fonts.bold(context) else Fonts.regular(context)
     }
 
     private fun button(label: String, onClick: () -> Unit) = Button(this).apply {
-        text = label; isAllCaps = false; setOnClickListener { onClick() }
+        text = label; isAllCaps = false; typeface = Fonts.semibold(context); setOnClickListener { onClick() }
     }
 
     private fun section(title: String) {
