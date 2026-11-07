@@ -241,6 +241,8 @@ class MainActivity : Activity() {
             if (r != null) appendLine("알약: x=${r[0]} y=${r[1]} 폭=${r[2]} 높이=${r[3]}")
             appendLine("알림 접근 연결: ${if (NotifListener.instance != null) "예" else "아니오"} · 자동 재시작: ${if (Restarter.canWriteSecure(this@MainActivity)) "켜짐" else "꺼짐"}")
             append("오류: ${s.lastError ?: "없음"}")
+            val log = EventLog.recent()
+            if (log.isNotEmpty()) { append("\n\n최근 기록\n"); append(log.joinToString("\n")) }
         }
     }
 

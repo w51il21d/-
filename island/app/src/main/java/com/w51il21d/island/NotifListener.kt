@@ -18,11 +18,13 @@ class NotifListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         instance = this
+        EventLog.add("알림 접근 연결됨")
         media = MediaWatcher(this).also { it.start() }
         rescan()
     }
 
     override fun onListenerDisconnected() {
+        EventLog.add("알림 접근 끊김")
         media?.stop(); media = null
         Hub.removeLiveKinds(setOf(Kind.CALL, Kind.NAV, Kind.TIMER))
         instance = null
@@ -82,18 +84,36 @@ class NotifListener : NotificationListenerService() {
 
         val pm = getSystemService(PowerManager::class.java)
         val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked
-        if (!pm.isInteractive) return
+        val name = Ui.appLabel(this, pkg) ?: pkg
+        if (!pm.isInteractive) { EventLog.add("$name: 화면 꺼짐이라 건너뜀"); return }
         val inFront = !locked && pkg == IslandService.foregroundPkg
+        val groupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0
+        val excluded = pkg in Prefs.excluded(this)
         if (!Classify.shouldAlert(
                 ongoing = sbn.isOngoing,
-                groupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0,
+                groupSummary = groupSummary,
                 importance = importance,
                 passesDnd = passesDnd,
                 repeat = repeat,
                 hasTitle = !title.isNullOrBlank(),
-                excluded = pkg in Prefs.excluded(this),
+                excluded = excluded,
                 appInFront = inFront,
-            )) return
+            )) {
+            val why = when {
+                sbn.isOngoing -> "진행 중 알림"
+                groupSummary -> "묶음 요약"
+                importance < 3 -> "조용한 알림(중요도 $importance)"
+                !passesDnd -> "방해 금지"
+                repeat -> "같은 내용 반복"
+                title.isNullOrBlank() -> "제목 없음"
+                excluded -> "제외한 앱"
+                inFront -> "지금 보고 있는 앱"
+                else -> "기타"
+            }
+            if (!groupSummary && !sbn.isOngoing) EventLog.add("$name: 건너뜀 - $why")
+            return
+        }
+        EventLog.add("$name: 띄움")
         Prefs.rememberApp(this, pkg)
 
         val appLabel = Ui.appLabel(this, pkg)

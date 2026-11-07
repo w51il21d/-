@@ -190,6 +190,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     fun setSuppressed(s: Boolean) {
         if (s == suppressed) return
         suppressed = s
+        EventLog.add(if (s) "아일랜드 숨김 (전체화면/가로)" else "아일랜드 다시 보임")
         if (s && mode == Mode.EXPANDED) collapse()
         // Invisible (not just transparent) so music bars and glow stop redrawing while hidden.
         visibility = if (s) INVISIBLE else VISIBLE

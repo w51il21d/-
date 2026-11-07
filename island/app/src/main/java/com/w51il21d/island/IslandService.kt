@@ -52,6 +52,7 @@ class IslandService : AccessibilityService() {
     override fun onServiceConnected() {
         if (::island.isInitialized) { ensureWindows(); return }
         instance = this
+        EventLog.add("서비스 연결됨")
         wm = getSystemService(WindowManager::class.java)
         lp = WindowManager.LayoutParams(
             1, 1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -121,7 +122,7 @@ class IslandService : AccessibilityService() {
         var reattached = false
         // parent is set synchronously by addView; isAttachedToWindow only after the next frame.
         if (island.parent == null) {
-            try { wm.addView(island, lp); reattached = true; lastError = null } catch (e: Exception) { lastError = "창 다시 붙이기 실패: ${e.message}" }
+            try { wm.addView(island, lp); reattached = true; lastError = null; EventLog.add("창 다시 붙임") } catch (e: Exception) { lastError = "창 다시 붙이기 실패: ${e.message}" }
         }
         val t = touchView
         if (t == null || t.parent == null) {
