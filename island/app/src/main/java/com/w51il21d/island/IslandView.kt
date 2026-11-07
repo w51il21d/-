@@ -590,7 +590,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     }
 
     private fun kindLabel(k: Kind) = when (k) {
-        Kind.CALL -> "통화"; Kind.NAV -> "길 안내"; Kind.TIMER -> "타이머"; Kind.MEDIA -> "음악"; Kind.ALERT -> "알림"
+        Kind.CALL -> "통화"; Kind.NAV -> "길 안내"; Kind.TIMER -> "타이머"; Kind.LIVE -> "진행 중"; Kind.MEDIA -> "음악"; Kind.ALERT -> "알림"
     }
 
     private fun column(top: Int = 0, bottom: Int = 0) = LinearLayout(context).apply {
@@ -630,6 +630,10 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         col.addView(topRow(i, if (i.kind == Kind.ALERT && i.shape == Shape.BANNER) "지금" else null),
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, compactH))
         col.addView(mainRow(i, raw(46f), 16.5f, 4, 28f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(6f) })
+        i.progress?.let { p ->
+            col.addView(SlimSeek(context).apply { readOnly = true; fraction = p; fillColor = i.accent },
+                LinearLayout.LayoutParams(-1, raw(18f)).apply { topMargin = raw(12f) })
+        }
         if (i.actions.isNotEmpty()) col.addView(actionsRow(i), LinearLayout.LayoutParams(-1, -2).apply { topMargin = raw(16f) })
         return col
     }

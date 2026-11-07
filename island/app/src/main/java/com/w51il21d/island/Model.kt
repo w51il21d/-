@@ -3,7 +3,7 @@ package com.w51il21d.island
 import android.graphics.drawable.Drawable
 
 /** What the island is showing. Higher priority wins when several run at once. */
-enum class Kind(val priority: Int) { CALL(100), NAV(80), TIMER(60), MEDIA(40), ALERT(0) }
+enum class Kind(val priority: Int) { CALL(100), NAV(80), TIMER(60), LIVE(50), MEDIA(40), ALERT(0) }
 
 /** Pill shape an item asks for when not expanded. */
 enum class Shape { COMPACT, BANNER }
@@ -53,6 +53,8 @@ data class Item(
     /** How long a transient alert stays, in ms. Ignored for live items. */
     val durationMs: Long = 3000,
     val rank: Int = kind.priority,
+    /** 0..1 for a determinate progress bar (deliveries, downloads), null when there is none. */
+    val progress: Float? = null,
     val seq: Long = 0,
 )
 

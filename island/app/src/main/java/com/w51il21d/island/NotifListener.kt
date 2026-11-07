@@ -59,16 +59,43 @@ class NotifListener : NotificationListenerService() {
         if (pkg == packageName) return
         val ex = n.extras
         if (ex.containsKey(Notification.EXTRA_MEDIA_SESSION)) return // music: handled by MediaWatcher
-        val title = ex.getCharSequence(Notification.EXTRA_TITLE) ?: ex.getCharSequence(Notification.EXTRA_TITLE_BIG)
-        val text = ex.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: ex.getCharSequence(Notification.EXTRA_TEXT)
+        var title = ex.getCharSequence(Notification.EXTRA_TITLE) ?: ex.getCharSequence(Notification.EXTRA_TITLE_BIG)
+        var text = ex.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: ex.getCharSequence(Notification.EXTRA_TEXT)
         val chrono = ex.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)
+        val template = ex.getString(Notification.EXTRA_TEMPLATE) ?: ""
+        val progressMax = ex.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
+        val signals = Classify.Signals(
+            pkg = pkg, category = n.category, ongoing = sbn.isOngoing, chronometer = chrono,
+            callStyle = template.endsWith("CallStyle"),
+            progress = progressMax > 0 && !ex.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE),
+            // Android 16 Live Updates ask for promotion with this extra; Samsung's live notifications
+            // (Now Bar) use "ongoingActivity" extras. The Samsung key names are a best guess.
+            promoted = ex.getBoolean("android.requestPromotedOngoing") || ex.keySet().any { it.contains("ongoingActivity", ignoreCase = true) },
+        )
 
-        val kind = Classify.ongoingKind(pkg, n.category, sbn.isOngoing, chrono)
+        val kind = Classify.ongoingKind(signals)
         if (kind != null) {
-            if (Prefs.on(this, Prefs.ONGOING) && !title.isNullOrBlank()) Hub.putLive(liveItem(sbn, kind, title, text, chrono))
+            val prefKey = if (kind == Kind.LIVE) Prefs.LIVE else Prefs.ONGOING
+            if (Prefs.on(this, prefKey) && !title.isNullOrBlank()) Hub.putLive(liveItem(sbn, kind, title, text, chrono))
             else Hub.removeLive(sbn.key)
             return
         }
+
+        // Chat apps: read the standard conversation format for the right sender, group name and photo.
+        var sender: android.app.Person? = null
+        if (template.endsWith("MessagingStyle")) try {
+            @Suppress("DEPRECATION")
+            val arr = ex.getParcelableArray(Notification.EXTRA_MESSAGES)
+            val last = Notification.MessagingStyle.Message.getMessagesFromBundleArray(arr).lastOrNull()
+            if (last != null) {
+                sender = last.senderPerson
+                val group = ex.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)
+                val conv = ex.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+                val who = sender?.name
+                if (group && conv != null) { title = conv; text = if (who != null) "$who: ${last.text}" else last.text }
+                else { if (who != null) title = who; text = last.text }
+            }
+        } catch (_: Exception) { }
         // Was ongoing (timer, call) and now finished: drop the live item.
         Hub.removeLive(sbn.key)
         if (initial || !Prefs.on(this, Prefs.NOTIF)) return
@@ -120,7 +147,7 @@ class NotifListener : NotificationListenerService() {
 
         val appLabel = Ui.appLabel(this, pkg)
         val hide = locked && Prefs.on(this, Prefs.LOCK_PRIVATE)
-        val large = if (hide) null else n.getLargeIcon()?.let { try { it.loadDrawable(this) } catch (_: Exception) { null } }
+        val large = if (hide) null else (sender?.icon ?: n.getLargeIcon())?.let { try { it.loadDrawable(this) } catch (_: Exception) { null } }
         val icon = large ?: Ui.appIcon(this, pkg)
         val open = {
             if (!Ui.fire(this, n.contentIntent)) Ui.launch(this, pkg)
@@ -142,10 +169,33 @@ class NotifListener : NotificationListenerService() {
         (n.actions ?: emptyArray()).filter { it.remoteInputs.isNullOrEmpty() && it.title != null && it.actionIntent != null }
             .take(3).map { a -> Act(a.title, Classify.actionStyle(a.title)) { Ui.fire(this, a.actionIntent) } }
 
+    /** Deliveries, rides, downloads: app icon, percent or minutes left, a progress bar when expanded. */
+    private fun liveProgressItem(sbn: StatusBarNotification, title: CharSequence, text: CharSequence?): Item {
+        val n = sbn.notification
+        val pkg = sbn.packageName
+        val ex = n.extras
+        val max = ex.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
+        val prog = if (max > 0) ex.getInt(Notification.EXTRA_PROGRESS, 0).toFloat() / max else null
+        val large = n.getLargeIcon()?.let { try { it.loadDrawable(this) } catch (_: Exception) { null } }
+        val icon = large ?: Ui.appIcon(this, pkg)
+        val accent = Ui.accentOf(Ui.appIcon(this, pkg)).let { if (it == Ui.WHITE) Ui.BLUE else it }
+        val right = Classify.shortEta(title, text) ?: prog?.let { "${(it * 100).toInt()}%" }
+        return Item(
+            key = sbn.key, kind = Kind.LIVE, title = title, text = text, pkg = pkg,
+            label = Ui.appLabel(this, pkg),
+            icon = icon, iconPicture = icon != null, iconRound = false,
+            accent = accent, rightText = right, rightColor = accent,
+            progress = prog?.coerceIn(0f, 1f),
+            actions = actions(n),
+            open = { if (!Ui.fire(this, n.contentIntent)) Ui.launch(this, pkg) },
+        )
+    }
+
     private fun liveItem(sbn: StatusBarNotification, kind: Kind, title: CharSequence, text: CharSequence?, chrono: Boolean): Item {
         val n = sbn.notification
         val pkg = sbn.packageName
         val ex = n.extras
+        if (kind == Kind.LIVE) return liveProgressItem(sbn, title, text)
         val (glyph, accent) = when (kind) {
             Kind.CALL -> R.drawable.ic_phone to Ui.GREEN
             Kind.NAV -> R.drawable.ic_navigation to Ui.BLUE

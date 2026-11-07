@@ -18,6 +18,21 @@ class ClassifyTest {
         assertNull(Classify.ongoingKind("com.samsung.android.incallui", "call", false, false)) // missed call
     }
 
+    @Test fun moreApps() {
+        fun k(pkg: String = "x", cat: String? = null, ongoing: Boolean = true, chrono: Boolean = false,
+              call: Boolean = false, progress: Boolean = false, promoted: Boolean = false) =
+            Classify.ongoingKind(Classify.Signals(pkg, cat, ongoing, chrono, call, progress, promoted))
+        assertEquals(Kind.CALL, k(pkg = "com.kakao.talk", call = true))          // voice call in a chat app
+        assertEquals(Kind.LIVE, k(pkg = "com.sampleapp.delivery", progress = true))     // delivery with a progress bar
+        assertEquals(Kind.LIVE, k(pkg = "com.example", ongoing = false, promoted = true)) // Android 16 live update
+        assertNull(k(pkg = "android", progress = true))                           // system noise
+        assertNull(k(pkg = "com.example"))                                        // plain foreground service
+        assertEquals(Kind.NAV, k(pkg = "kr.mappers.AtlanSmart"))
+        assertEquals("12분", Classify.shortEta("약 12분 후 도착"))
+        assertEquals("12분", Classify.shortEta(null, "도착까지 12 분"))
+        assertNull(Classify.shortEta("주문 접수"))
+    }
+
     private fun alert(
         ongoing: Boolean = false, summary: Boolean = false, importance: Int = 3, dnd: Boolean = true,
         repeat: Boolean = false, title: Boolean = true, excluded: Boolean = false, front: Boolean = false,

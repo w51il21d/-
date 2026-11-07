@@ -16,6 +16,11 @@ class SlimSeek(context: Context) : View(context) {
     var onSeekEnd: (Float) -> Unit = {}
     var dragging = false
         private set
+    /** Display only (downloads, deliveries): ignore touches. */
+    var readOnly = false
+    var fillColor: Int
+        get() = fill.color
+        set(v) { fill.color = v; invalidate() }
 
     private val d = context.resources.displayMetrics.density
     private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x40FFFFFF }
@@ -42,6 +47,7 @@ class SlimSeek(context: Context) : View(context) {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (readOnly) return false
         val f = (e.x / width).coerceIn(0f, 1f)
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> { parent?.requestDisallowInterceptTouchEvent(true); dragging = true; setThick(9f); onSeekStart(); fraction = f; onSeeking(f) }

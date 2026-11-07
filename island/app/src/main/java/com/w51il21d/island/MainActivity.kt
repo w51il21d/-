@@ -128,6 +128,7 @@ class MainActivity : Activity() {
         card {
             toggle(it, R.drawable.ic_music, 0xFFFF2D55.toInt(), Prefs.MEDIA, "음악 재생", "앨범 사진, 재생 막대, 재생 조작")
             toggle(it, R.drawable.ic_phone, 0xFF34C759.toInt(), Prefs.ONGOING, "통화 · 타이머 · 길 안내", "진행 중인 시간과 다음 안내")
+            toggle(it, R.drawable.ic_refresh, 0xFF00B3A4.toInt(), Prefs.LIVE, "진행 상황", "배달·택시·다운로드처럼 진행 막대가 있는 알림")
             toggle(it, R.drawable.ic_notify, 0xFFFF9500.toInt(), Prefs.NOTIF, "알림 미리보기", "새 알림을 잠깐 펼쳐서 보여줌")
             toggle(it, R.drawable.ic_bolt, 0xFF30B94D.toInt(), Prefs.CHARGING, "충전", "충전기를 꽂을 때, 다 찼을 때")
             toggle(it, R.drawable.ic_battery_alert, 0xFFFF453A.toInt(), Prefs.LOWBAT, "배터리 부족", "20%, 10%, 5%에서 한 번씩")
