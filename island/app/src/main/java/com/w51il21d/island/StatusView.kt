@@ -23,7 +23,7 @@ class StatusView(context: Context, private val h: Int, private val gap: Int, fon
     private val r = RectF()
 
     /** Ring diameter. */
-    private val ring get() = h * 0.66f
+    private val ring get() = h * 0.80f
     val leftW get() = if (showNumber) { num.textSize = h * 0.44f; num.measureText("100") } else 0f
     val rightW get() = ring
 
@@ -58,14 +58,14 @@ class StatusView(context: Context, private val h: Int, private val gap: Int, fon
 
         // Wi-Fi fan inside the ring (dimmed parts = weaker signal; hidden when Wi-Fi is off).
         if (s.wifi >= 0) {
-            val w = d * 0.20f
-            val base = cy + d * 0.12f
-            val st = d * 0.075f
+            // Kept well inside the ring: outer arc radius is about half the ring's inner radius.
+            val base = cy + d * 0.11f
+            val st = d * 0.07f
             arc.strokeWidth = st
             dot.color = white
-            c.drawCircle(cx, base, st * 0.75f, dot)
+            c.drawCircle(cx, base, st * 0.8f, dot)
             for (k in 1..2) {
-                val ar = w * (0.75f + 0.85f * (k - 1)) + w * 0.25f
+                val ar = d * (0.08f + 0.085f * k)
                 r.set(cx - ar, base - ar, cx + ar, base + ar)
                 arc.color = if (s.wifi >= k + 1) white else dim
                 c.drawArc(r, 225f, 90f, false, arc)
@@ -73,9 +73,9 @@ class StatusView(context: Context, private val h: Int, private val gap: Int, fon
         }
 
         // Four dots in the ring's bottom gap: mobile signal.
-        val dr = d * 0.055f
-        val spread = d * 0.17f
-        val yBase = cy + d * 0.40f
+        val dr = d * 0.05f
+        val spread = d * 0.15f
+        val yBase = cy + d * 0.41f
         for (k in 0 until 4) {
             val off = (k - 1.5f) * spread
             val y = yBase + (if (k == 0 || k == 3) -d * 0.04f else 0f)

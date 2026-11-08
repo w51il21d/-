@@ -12,8 +12,8 @@ android {
   applicationId = "com.w51il21d.island"
   minSdk = 30
   targetSdk = 35
-  versionCode = 17
-  versionName = "1.6.0"
+  versionCode = 18
+  versionName = "1.6.1"
  }
  compileOptions {
   sourceCompatibility = JavaVersion.VERSION_17
