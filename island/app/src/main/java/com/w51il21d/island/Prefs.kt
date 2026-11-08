@@ -17,6 +17,8 @@ object Prefs {
     const val GLOW = "glow"
     const val SHOW_QUIET = "show_quiet"
     const val LIVE = "live_activities"
+    const val STATUS = "status_icons"
+    const val BATT_NUM = "battery_number"
     const val SHOW_FRONT = "show_front"
     const val LOCK_PRIVATE = "lock_private"
     const val OFFSET = "offset_dp"

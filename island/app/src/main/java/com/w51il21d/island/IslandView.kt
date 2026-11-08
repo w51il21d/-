@@ -83,6 +83,9 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
     var scale = 1f
     var idlePill = false
     var glowOn = true
+    /** Idle pill shows the Duo status glyph (battery ring, Wi-Fi, signal dots). */
+    var statusIcons = true
+    var batteryNumber = true
     var onHold: (Boolean) -> Unit = {}
     var onDismissAlert: () -> Unit = {}
 
@@ -210,6 +213,9 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         updateBreathing()
     }
 
+    /** Battery, Wi-Fi or signal changed: redraw the idle glyph in place. */
+    fun statusChanged() { if (mode == Mode.IDLE) content?.invalidate() }
+
     /** Last touch rectangle given to the host: x, y, w, h. For tests. */
     var lastPlace = intArrayOf(0, 0, 0, 0); private set
     /** Last drawing-window height. For tests. */
@@ -280,6 +286,7 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         seek = null; posLabel = null; remainLabel = null
         val i = item
         val next: View? = when (target) {
+            Mode.IDLE -> if (statusIcons) StatusView(context, compactH, geo.holeW + raw(10f), Fonts.bold(context), batteryNumber) else null
             Mode.COMPACT -> i?.let { buildCompact(it) }
             Mode.BANNER -> i?.let { buildBanner(it) }
             Mode.EXPANDED -> i?.let { buildExpanded(it) }
@@ -289,7 +296,12 @@ class IslandView(context: Context, geo: Geo, private val host: Host) : FrameLayo
         val th: Int
         when (target) {
             Mode.HIDDEN -> { tw = compactH; th = compactH }
-            Mode.IDLE -> { tw = geo.holeW + (compactH * 1.1f).roundToInt(); th = compactH }
+            Mode.IDLE -> {
+                val sv = next as? StatusView
+                tw = if (sv == null) geo.holeW + (compactH * 1.1f).roundToInt()
+                else geo.holeW + raw(10f) + 2 * (max(sv.leftW, sv.rightW).roundToInt() + (compactH * 0.42f).roundToInt())
+                th = compactH
+            }
             Mode.COMPACT -> { tw = compactWidth(i!!); th = compactH }
             Mode.BANNER -> {
                 tw = wideW

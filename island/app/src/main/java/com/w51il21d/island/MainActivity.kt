@@ -144,7 +144,9 @@ class MainActivity : Activity() {
             toggle(it, R.drawable.ic_lock, 0xFF8E8E93.toInt(), Prefs.LOCK_PRIVATE, "잠금 화면 알림 내용 숨기기", "앱 이름과 '새 알림'만 표시")
             toggle(it, R.drawable.ic_fullscreen, 0xFF5AC8FA.toInt(), Prefs.HIDE_FULL, "전체화면에서 숨기기", "동영상·게임처럼 상태바가 사라질 때")
             toggle(it, R.drawable.ic_rotate, 0xFF64D2FF.toInt(), Prefs.HIDE_LAND, "가로 화면에서 숨기기", null)
-            toggle(it, R.drawable.ic_pill, 0xFF3A3A3C.toInt(), Prefs.IDLE, "평소에도 작은 알약 표시", "표시할 내용이 없을 때도 카메라 둘레에", last = true)
+            toggle(it, R.drawable.ic_pill, 0xFF3A3A3C.toInt(), Prefs.IDLE, "평소에도 작은 알약 표시", "표시할 내용이 없을 때도 카메라 둘레에")
+            toggle(it, R.drawable.ic_battery_alert, 0xFF30B94D.toInt(), Prefs.STATUS, "알약에 상태 아이콘", "배터리 링 · 와이파이 · 신호 점 (작은 알약이 켜져 있을 때)")
+            toggle(it, R.drawable.ic_bolt, 0xFF30B94D.toInt(), Prefs.BATT_NUM, "배터리 퍼센트 숫자", "카메라 왼쪽에 배터리 %", last = true)
         }
 
         section("크기와 위치")

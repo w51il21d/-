@@ -37,6 +37,8 @@ class IslandService : AccessibilityService() {
     private var touchView: View? = null
     private var probe: View? = null
     private var events: SystemEvents? = null
+    private var status: StatusMonitor? = null
+    private val statusListener = { if (::island.isInitialized) island.statusChanged() }
     var statusVisible = true
         private set
     var lastError: String? = null
@@ -104,6 +106,8 @@ class IslandService : AccessibilityService() {
         island.show(Hub.current())
         updateSuppressed()
         events = SystemEvents(this).also { it.register() }
+        status = StatusMonitor(this).also { it.start() }
+        StatusState.addListener(statusListener)
         Prefs.sp(this).registerOnSharedPreferenceChangeListener(prefListener)
         Restarter.markRunning(this, true)
         registerReceiver(screenRx, android.content.IntentFilter().apply {
@@ -227,12 +231,14 @@ class IslandService : AccessibilityService() {
         island.scale = Prefs.scale(this) / 100f
         island.idlePill = Prefs.on(this, Prefs.IDLE)
         island.glowOn = Prefs.on(this, Prefs.GLOW)
+        island.statusIcons = Prefs.on(this, Prefs.STATUS)
+        island.batteryNumber = Prefs.on(this, Prefs.BATT_NUM)
     }
 
     private fun onPref(key: String?) {
         when (key) {
             Prefs.OFFSET, Prefs.SCALE -> { applyPrefs(); island.refresh() }
-            Prefs.IDLE, Prefs.GLOW -> { applyPrefs(); island.show(Hub.current()) }
+            Prefs.IDLE, Prefs.GLOW, Prefs.STATUS, Prefs.BATT_NUM -> { applyPrefs(); if (Hub.current() == null) island.refresh() else island.show(Hub.current()) }
             Prefs.HIDE_LAND, Prefs.HIDE_FULL -> updateSuppressed()
             Prefs.MEDIA -> NotifListener.instance?.refreshMedia()
             Prefs.ONGOING -> NotifListener.instance?.rescan()
@@ -291,6 +297,8 @@ class IslandService : AccessibilityService() {
         handler.removeCallbacks(ensure)
         try { unregisterReceiver(screenRx) } catch (_: Exception) { }
         events?.unregister(); events = null
+        status?.stop(); status = null
+        StatusState.removeListener(statusListener)
         if (::island.isInitialized) {
             Hub.removeListener(hubListener)
             try { wm.removeView(island) } catch (_: Exception) { }

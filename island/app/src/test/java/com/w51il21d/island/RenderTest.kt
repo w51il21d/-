@@ -149,7 +149,7 @@ class RenderTest {
             render("무음 전환", ringer()),
             render("블루투스", bt()),
             render("배터리 부족", lowBat()),
-            render("대기 알약", null, idle = true),
+            run { StatusState.set(cell = 3, wifi = 3, battery = 78, charging = false); render("대기 알약 (상태 아이콘)", null, idle = true) },
         )
         val wide = listOf(
             render("알림 미리보기", message()),
@@ -159,7 +159,11 @@ class RenderTest {
             render("길 안내 (펼침)", nav(), expand = true),
             render("충전 (펼침)", Demo.chargingItem(ctx), expand = true),
         )
-        save("island-compact", compact)
+        val idleExtra = listOf(
+            run { StatusState.set(cell = 1, wifi = 1, battery = 16, charging = false); render("대기 알약 (배터리 부족, 약한 신호)", null, idle = true) },
+            run { StatusState.set(cell = 4, wifi = -1, battery = 64, charging = true); render("대기 알약 (충전 중, 와이파이 꺼짐)", null, idle = true) },
+        )
+        save("island-compact", compact + idleExtra)
         save("island-expanded", wide)
 
         val g = geo
